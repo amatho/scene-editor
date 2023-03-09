@@ -1,7 +1,9 @@
 use std::ffi::{CStr, CString};
 
 use glutin::{
-    config::ConfigTemplateBuilder, context::ContextAttributesBuilder, display::GetGlDisplay,
+    config::ConfigTemplateBuilder,
+    context::{ContextApi, ContextAttributesBuilder, Version},
+    display::GetGlDisplay,
     prelude::*,
 };
 use glutin_winit::{DisplayBuilder, GlWindow};
@@ -38,7 +40,9 @@ fn main() {
 
     let gl_display = gl_config.display();
 
-    let context_attributes = ContextAttributesBuilder::new().build(Some(raw_window_handle));
+    let context_attributes = ContextAttributesBuilder::new()
+        .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 1)))) // Maximum supported version on macOS
+        .build(Some(raw_window_handle));
     let not_current_gl_context = unsafe {
         gl_display
             .create_context(&gl_config, &context_attributes)
