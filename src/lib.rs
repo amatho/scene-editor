@@ -1,10 +1,11 @@
+mod debug;
 mod renderer;
 mod state;
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use glutin::config::ConfigTemplateBuilder;
-use glutin::context::{ContextApi, ContextAttributesBuilder, Version};
+use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
@@ -37,6 +38,7 @@ pub fn run() {
     let gl_display = gl_config.display();
 
     let context_attributes = ContextAttributesBuilder::new()
+        .with_profile(GlProfile::Core)
         .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 1)))) // Maximum supported version on macOS
         .build(Some(raw_window_handle));
     let not_current_gl_context =
@@ -53,6 +55,8 @@ pub fn run() {
         gl_display.get_proc_address(s.as_c_str())
     });
 
+    debug::print_gl_info();
+
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
         gl::DepthFunc(gl::LESS);
@@ -65,18 +69,6 @@ pub fn run() {
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
         gl::ClearColor(0.1, 0.1, 0.8, 1.0);
-    }
-
-    if let Some(renderer) = get_gl_string(gl::RENDERER) {
-        println!("Running on {}", renderer.to_string_lossy());
-    }
-
-    if let Some(version) = get_gl_string(gl::VERSION) {
-        println!("OpenGL Version {}", version.to_string_lossy());
-    }
-
-    if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
-        println!("Shaders version {}", shaders_version.to_string_lossy());
     }
 
     let mut state = State::new(window.inner_size().into());
@@ -116,11 +108,4 @@ pub fn run() {
             _ => (),
         }
     });
-}
-
-fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
-    unsafe {
-        let s = gl::GetString(variant);
-        (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
-    }
 }
