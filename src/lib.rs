@@ -1,22 +1,28 @@
+mod components;
 mod debug;
+mod gl_util;
 mod renderer;
-mod state;
+mod shader;
 
+use std::borrow::Cow;
 use std::ffi::CString;
 
+use bevy_ecs::schedule::{ExecutorKind, Schedule};
+use bevy_ecs::world::World;
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
+use nalgebra_glm::{Vec2, Vec3};
 use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent};
 use winit::window::WindowBuilder;
 
-use crate::renderer::MainRenderer;
-use crate::state::State;
+use crate::components::{Mesh, Position, TransformBundle};
+use crate::shader::{ShaderBuilder, ShaderType};
 
-pub fn run() {
+pub fn run() -> Result<(), Cow<'static, str>> {
     let event_loop = winit::event_loop::EventLoop::new();
     let window_builder = WindowBuilder::new();
     let template = ConfigTemplateBuilder::new();
@@ -71,8 +77,27 @@ pub fn run() {
         gl::ClearColor(0.1, 0.1, 0.8, 1.0);
     }
 
-    let mut state = State::new(window.inner_size().into());
-    let renderer = MainRenderer;
+    let shader = ShaderBuilder::new()
+        .add_shader("shaders/simple.vert", ShaderType::Vertex)?
+        .add_shader("shaders/simple.frag", ShaderType::Fragment)?
+        .link()?;
+    shader.activate();
+
+    let mut world = World::new();
+    world.spawn((
+        Mesh::new(
+            &[Vec3::new(-0.5, -0.5, 0.0), Vec3::new(0.5, -0.5, 0.0), Vec3::new(0.0, 0.5, 0.0)],
+            &[0, 1, 2],
+            &[Vec3::zeros(), Vec3::zeros(), Vec3::zeros()],
+            &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()],
+        ),
+        TransformBundle { position: Position::new(1.0, 1.0, 0.0), ..Default::default() },
+    ));
+    world.spawn(TransformBundle { position: Position::new(-1.0, 1.0, 0.0), ..Default::default() });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    schedule.add_system(renderer::render);
 
     event_loop.run(move |event, _window_target, control_flow| {
         control_flow.set_wait();
@@ -81,8 +106,6 @@ pub fn run() {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
-                        state.resize(size.into());
-
                         gl_surface.resize(
                             &gl_context,
                             size.width.try_into().unwrap(),
@@ -101,7 +124,7 @@ pub fn run() {
             Event::RedrawEventsCleared => unsafe {
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-                state.render(&renderer);
+                schedule.run(&mut world);
 
                 gl_surface.swap_buffers(&gl_context).unwrap();
             },

@@ -1,13 +1,14 @@
-use crate::state::State;
+use std::ptr;
 
-pub trait Renderer {
-    fn render(&self, state: &State);
-}
+use bevy_ecs::system::Query;
 
-pub struct MainRenderer;
+use crate::components::{Mesh, Position, Rotation, Scale};
 
-impl Renderer for MainRenderer {
-    fn render(&self, _state: &State) {
-        // TODO: Implement
+pub fn render(query: Query<(&Mesh, &Position, &Rotation, &Scale)>) {
+    for (m, _p, _r, _s) in &query {
+        unsafe {
+            gl::BindVertexArray(m.vao_id);
+            gl::DrawElements(gl::TRIANGLES, m.num_indices as i32, gl::UNSIGNED_INT, ptr::null());
+        }
     }
 }
