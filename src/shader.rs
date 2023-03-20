@@ -5,7 +5,7 @@ use std::{fs, ptr};
 use gl::types::GLuint;
 
 pub struct Shader {
-    program_id: GLuint,
+    pub program_id: GLuint,
 }
 
 impl Shader {

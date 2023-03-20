@@ -2,6 +2,7 @@ mod components;
 mod debug;
 mod gl_util;
 mod renderer;
+mod resources;
 mod shader;
 
 use std::borrow::Cow;
@@ -9,17 +10,19 @@ use std::ffi::CString;
 
 use bevy_ecs::schedule::{ExecutorKind, Schedule};
 use bevy_ecs::world::World;
+use glm::{Vec2, Vec3};
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
-use nalgebra_glm::{Vec2, Vec3};
+use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent};
 use winit::window::WindowBuilder;
 
 use crate::components::{Mesh, Position, TransformBundle};
+use crate::resources::{Camera, ShaderState};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
@@ -86,18 +89,28 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut world = World::new();
     world.spawn((
         Mesh::new(
-            &[Vec3::new(-0.5, -0.5, 0.0), Vec3::new(0.5, -0.5, 0.0), Vec3::new(0.0, 0.5, 0.0)],
+            &[Vec3::new(-5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0), Vec3::new(0.0, 10.0, 0.0)],
             &[0, 1, 2],
             &[Vec3::zeros(), Vec3::zeros(), Vec3::zeros()],
             &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()],
         ),
-        TransformBundle { position: Position::new(1.0, 1.0, 0.0), ..Default::default() },
+        TransformBundle { position: Position::new(0.0, 0.0, -10.0), ..Default::default() },
     ));
-    world.spawn(TransformBundle { position: Position::new(-1.0, 1.0, 0.0), ..Default::default() });
 
     let mut schedule = Schedule::default();
     schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     schedule.add_system(renderer::render);
+
+    let window_size = window.inner_size();
+    let perspective = glm::perspective(
+        80.0_f32.to_radians(),
+        window_size.width as f32 / window_size.height as f32,
+        0.1,
+        350.0,
+    );
+    world.insert_resource(Camera::new(glm::identity(), perspective));
+
+    world.insert_resource(ShaderState::new(shader.program_id));
 
     event_loop.run(move |event, _window_target, control_flow| {
         control_flow.set_wait();
@@ -106,6 +119,14 @@ pub fn run() -> Result<(), Cow<'static, str>> {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
+                        let perspective = glm::perspective(
+                            80.0_f32.to_radians(),
+                            size.width as f32 / size.height as f32,
+                            0.1,
+                            350.0,
+                        );
+                        world.resource_mut::<Camera>().projection = perspective;
+
                         gl_surface.resize(
                             &gl_context,
                             size.width.try_into().unwrap(),

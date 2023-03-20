@@ -6,9 +6,9 @@ use crate::gl_util;
 
 #[derive(Component, Default)]
 pub struct Position {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Position {
@@ -19,16 +19,22 @@ impl Position {
 
 #[derive(Component, Default)]
 pub struct Rotation {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 pub struct Scale {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Default for Scale {
+    fn default() -> Self {
+        Self { x: 1.0, y: 1.0, z: 1.0 }
+    }
 }
 
 #[derive(Bundle, Default)]
