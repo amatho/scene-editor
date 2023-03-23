@@ -10,7 +10,6 @@ use std::ffi::CString;
 
 use bevy_ecs::schedule::{ExecutorKind, Schedule};
 use bevy_ecs::world::World;
-use glm::{Vec2, Vec3};
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
 use glutin::display::GetGlDisplay;
@@ -18,7 +17,7 @@ use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::window::WindowBuilder;
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
@@ -104,10 +103,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
 
-    let mut schedule = Schedule::default();
-    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    schedule.add_system(renderer::render);
-
     let window_size = window.inner_size();
     let perspective = glm::perspective(
         80.0_f32.to_radians(),
@@ -115,15 +110,67 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
-    world.insert_resource(Camera::new(glm::identity(), perspective));
+    let mut camera_pos = glm::vec3(0.0, 0.0, 3.0);
+    let camera_front = glm::vec3(0.0, 0.0, -1.0);
+    let camera_up = glm::vec3(0.0, 1.0, 0.0);
+    world.insert_resource(Camera::new(
+        glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up),
+        perspective,
+    ));
 
     world.insert_resource(ShaderState::new(shader.program_id));
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    schedule.add_system(renderer::render);
 
     event_loop.run(move |event, _window_target, control_flow| {
         control_flow.set_wait();
 
         match event {
             Event::WindowEvent { event, .. } => match event {
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(keycode),
+                            ..
+                        },
+                    ..
+                } => match keycode {
+                    VirtualKeyCode::Escape => control_flow.set_exit(),
+                    VirtualKeyCode::W => {
+                        camera_pos += 0.5 * camera_front;
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    VirtualKeyCode::S => {
+                        camera_pos -= 0.5 * camera_front;
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    VirtualKeyCode::A => {
+                        camera_pos -= 0.5 * glm::normalize(&glm::cross(&camera_front, &camera_up));
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    VirtualKeyCode::D => {
+                        camera_pos += 0.5 * glm::normalize(&glm::cross(&camera_front, &camera_up));
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    VirtualKeyCode::Space => {
+                        camera_pos += 0.5 * camera_up;
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    VirtualKeyCode::LControl => {
+                        camera_pos -= 0.5 * camera_up;
+                        world.resource_mut::<Camera>().view =
+                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+                    }
+                    _ => (),
+                },
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
                         let perspective = glm::perspective(
