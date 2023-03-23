@@ -51,7 +51,7 @@ pub unsafe fn create_vao(
 
     generate_attribute(1, 3, normals, false);
 
-    generate_attribute(2, 3, texture_coords, false);
+    generate_attribute(2, 2, texture_coords, false);
 
     buffer_with_data(gl::ELEMENT_ARRAY_BUFFER, indices);
 

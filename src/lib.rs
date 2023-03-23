@@ -21,7 +21,7 @@ use raw_window_handle::HasRawWindowHandle;
 use winit::event::{Event, WindowEvent};
 use winit::window::WindowBuilder;
 
-use crate::components::{Mesh, Position, TransformBundle};
+use crate::components::{Mesh, Position, Rotation, TransformBundle};
 use crate::resources::{Camera, ShaderState};
 use crate::shader::{ShaderBuilder, ShaderType};
 
@@ -77,7 +77,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         gl::Enable(gl::BLEND);
         gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
-        gl::ClearColor(0.1, 0.1, 0.8, 1.0);
+        gl::ClearColor(0.4, 0.4, 1.0, 1.0);
     }
 
     let shader = ShaderBuilder::new()
@@ -88,13 +88,20 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
     let mut world = World::new();
     world.spawn((
-        Mesh::new(
-            &[Vec3::new(-5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0), Vec3::new(0.0, 10.0, 0.0)],
-            &[0, 1, 2],
-            &[Vec3::zeros(), Vec3::zeros(), Vec3::zeros()],
-            &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()],
-        ),
-        TransformBundle { position: Position::new(0.0, 0.0, -10.0), ..Default::default() },
+        Mesh::cube(5.0, 5.0, 5.0),
+        TransformBundle {
+            position: Position::new(5.0, 0.0, -15.0),
+            rotation: Rotation::new(0.0, 0.0, 0.0),
+            ..Default::default()
+        },
+    ));
+    world.spawn((
+        Mesh::cube(5.0, 5.0, 5.0),
+        TransformBundle {
+            position: Position::new(-5.0, 0.0, -15.0),
+            rotation: Rotation::new(0.0, 0.0, 0.0),
+            ..Default::default()
+        },
     ));
 
     let mut schedule = Schedule::default();
