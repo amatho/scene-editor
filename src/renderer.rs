@@ -11,7 +11,8 @@ pub fn render(
     shader_state: Res<ShaderState>,
     query: Query<(&Mesh, &Position, &Rotation, &Scale)>,
 ) {
-    let vp = camera.projection * camera.view;
+    let vp =
+        camera.projection * glm::look_at(&camera.pos, &(camera.pos + camera.front), &camera.up);
 
     for (m, p, r, s) in &query {
         let model = glm::translation(&glm::vec3(p.x, p.y, p.z))

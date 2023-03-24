@@ -4,9 +4,11 @@ mod gl_util;
 mod renderer;
 mod resources;
 mod shader;
+mod systems;
 
 use std::borrow::Cow;
 use std::ffi::CString;
+use std::time::Instant;
 
 use bevy_ecs::schedule::{ExecutorKind, Schedule};
 use bevy_ecs::world::World;
@@ -17,11 +19,11 @@ use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
-use winit::window::WindowBuilder;
+use winit::event::{DeviceEvent, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::window::{CursorGrabMode, WindowBuilder};
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, ShaderState};
+use crate::resources::{Camera, Input, ShaderState, Time};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
@@ -41,6 +43,11 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     println!("Picked a config with {} samples", gl_config.num_samples());
 
     let window = window.unwrap();
+    window
+        .set_cursor_grab(CursorGrabMode::Confined)
+        .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
+        .unwrap();
+    window.set_cursor_visible(false);
     let raw_window_handle = window.raw_window_handle();
 
     let gl_display = gl_config.display();
@@ -110,66 +117,44 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
-    let mut camera_pos = glm::vec3(0.0, 0.0, 3.0);
-    let camera_front = glm::vec3(0.0, 0.0, -1.0);
-    let camera_up = glm::vec3(0.0, 1.0, 0.0);
     world.insert_resource(Camera::new(
-        glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up),
         perspective,
+        glm::vec3(0.0, 0.0, 3.0),
+        glm::vec3(0.0, 0.0, -1.0),
+        glm::vec3(0.0, 1.0, 0.0),
+        -90.0,
+        0.0,
     ));
-
     world.insert_resource(ShaderState::new(shader.program_id));
+    world.insert_resource(Input::default());
+    world.insert_resource(Time::default());
 
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    schedule.add_system(renderer::render);
+    schedule.add_system(systems::move_camera);
+    schedule.add_system(systems::rotate_objects);
 
-    event_loop.run(move |event, _window_target, control_flow| {
-        control_flow.set_wait();
+    let mut render_schedule = Schedule::new();
+    render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    render_schedule.add_system(renderer::render);
+
+    let mut previous_frame_time = Instant::now();
+
+    event_loop.run(move |event, _, control_flow| {
+        let now = Instant::now();
+        let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
+        previous_frame_time = now;
+        world.resource_mut::<Time>().delta_time = delta_time;
+
+        control_flow.set_poll();
 
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(keycode),
-                            ..
-                        },
+                    input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
                     ..
                 } => match keycode {
                     VirtualKeyCode::Escape => control_flow.set_exit(),
-                    VirtualKeyCode::W => {
-                        camera_pos += 0.5 * camera_front;
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    VirtualKeyCode::S => {
-                        camera_pos -= 0.5 * camera_front;
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    VirtualKeyCode::A => {
-                        camera_pos -= 0.5 * glm::normalize(&glm::cross(&camera_front, &camera_up));
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    VirtualKeyCode::D => {
-                        camera_pos += 0.5 * glm::normalize(&glm::cross(&camera_front, &camera_up));
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    VirtualKeyCode::Space => {
-                        camera_pos += 0.5 * camera_up;
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    VirtualKeyCode::LControl => {
-                        camera_pos -= 0.5 * camera_up;
-                        world.resource_mut::<Camera>().view =
-                            glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
-                    }
-                    _ => (),
+                    k => world.resource_mut::<Input>().handle_keyboard_input(k, state),
                 },
                 WindowEvent::Resized(size) => {
                     if size.width != 0 && size.height != 0 {
@@ -193,6 +178,9 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 }
                 _ => (),
             },
+            Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
+                world.resource_mut::<Input>().mouse_delta = delta;
+            }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
@@ -200,6 +188,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
                 schedule.run(&mut world);
+                render_schedule.run(&mut world);
 
                 gl_surface.swap_buffers(&gl_context).unwrap();
             },
