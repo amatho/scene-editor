@@ -91,9 +91,9 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
     unsafe {
         info!("Vendor: {}", gl.get_parameter_string(glow::VENDOR));
-        info!("Renderer: {}", gl.get_parameter_string(glow::VENDOR));
-        info!("OpenGL Version: {}", gl.get_parameter_string(glow::VENDOR));
-        info!("GLSL Version: {}", gl.get_parameter_string(glow::VENDOR));
+        info!("Renderer: {}", gl.get_parameter_string(glow::RENDERER));
+        info!("OpenGL Version: {}", gl.get_parameter_string(glow::VERSION));
+        info!("GLSL Version: {}", gl.get_parameter_string(glow::SHADING_LANGUAGE_VERSION));
 
         gl.enable(glow::BLEND);
         gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
