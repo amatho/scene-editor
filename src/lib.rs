@@ -24,7 +24,9 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use log::info;
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
-use winit::event::{DeviceEvent, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::event::{
+    DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
+};
 use winit::window::{CursorGrabMode, WindowBuilder};
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
@@ -55,11 +57,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     info!("Picked a config with {} samples", gl_config.num_samples());
 
     let window = window.unwrap();
-    window
-        .set_cursor_grab(CursorGrabMode::Confined)
-        .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
-        .unwrap();
-    window.set_cursor_visible(false);
     let raw_window_handle = window.raw_window_handle();
 
     let gl_display = gl_config.display();
@@ -153,6 +150,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
 
     let mut previous_frame_time = Instant::now();
+    let mut focused = false;
 
     event_loop.run(move |event, _, control_flow| {
         let now = Instant::now();
@@ -164,10 +162,28 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                let event_response = egui_glow.on_event(&event);
+                let consumed = if focused { false } else { egui_glow.on_event(&event).consumed };
 
-                if !event_response.consumed {
+                if !consumed {
                     match event {
+                        WindowEvent::MouseInput {
+                            state: ElementState::Pressed,
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            if focused {
+                                window.set_cursor_grab(CursorGrabMode::None).unwrap();
+                                window.set_cursor_visible(true);
+                            } else {
+                                window
+                                    .set_cursor_grab(CursorGrabMode::Confined)
+                                    .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
+                                    .unwrap();
+                                window.set_cursor_visible(false);
+                            }
+
+                            focused = !focused;
+                        }
                         WindowEvent::KeyboardInput {
                             input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
                             ..
@@ -200,7 +216,9 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 }
             }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
-                world.resource_mut::<Input>().mouse_delta = delta;
+                if focused {
+                    world.resource_mut::<Input>().mouse_delta = delta;
+                }
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
