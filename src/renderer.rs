@@ -1,16 +1,29 @@
-use std::ptr;
-
 use bevy_ecs::system::{Query, Res};
+use glow::HasContext;
 use nalgebra_glm as glm;
 
 use crate::components::{Mesh, Position, Rotation, Scale};
-use crate::resources::{Camera, ShaderState};
+use crate::resources::{Camera, GlContext, ShaderState};
 
 pub fn render(
+    gl_context: Res<GlContext>,
     camera: Res<Camera>,
     shader_state: Res<ShaderState>,
     query: Query<(&Mesh, &Position, &Rotation, &Scale)>,
 ) {
+    let gl = &gl_context.gl;
+    unsafe {
+        gl.enable(glow::DEPTH_TEST);
+        gl.depth_func(glow::LESS);
+
+        gl.enable(glow::CULL_FACE);
+
+        gl.clear_color(0.4, 0.4, 1.0, 1.0);
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+    }
+
+    shader_state.shader.activate(gl);
+
     let vp =
         camera.projection * glm::look_at(&camera.pos, &(camera.pos + camera.front), &camera.up);
 
@@ -24,12 +37,11 @@ pub fn render(
         let mvp = vp * model;
 
         unsafe {
-            let mvp_location =
-                gl::GetUniformLocation(shader_state.program_id, b"mvp\0".as_ptr().cast());
-            gl::UniformMatrix4fv(mvp_location, 1, gl::FALSE, glm::value_ptr(&mvp).as_ptr());
+            let mvp_location = gl.get_uniform_location(shader_state.shader.program, "mvp");
+            gl.uniform_matrix_4_f32_slice(mvp_location.as_ref(), false, glm::value_ptr(&mvp));
 
-            gl::BindVertexArray(m.vao_id);
-            gl::DrawElements(gl::TRIANGLES, m.num_indices as i32, gl::UNSIGNED_INT, ptr::null());
+            gl.bind_vertex_array(Some(m.vao));
+            gl.draw_elements(glow::TRIANGLES, m.num_indices as i32, glow::UNSIGNED_INT, 0);
         }
     }
 }

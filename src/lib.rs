@@ -1,5 +1,4 @@
 mod components;
-mod debug;
 mod gl_util;
 mod renderer;
 mod resources;
@@ -8,15 +7,21 @@ mod systems;
 
 use std::borrow::Cow;
 use std::ffi::CString;
+use std::num::NonZeroU32;
+use std::sync::Arc;
 use std::time::Instant;
 
 use bevy_ecs::schedule::{ExecutorKind, Schedule};
 use bevy_ecs::world::World;
+use env_logger::Env;
+use glow::HasContext as _;
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
+use glutin::surface::SwapInterval;
 use glutin_winit::{DisplayBuilder, GlWindow};
+use log::info;
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
 use winit::event::{DeviceEvent, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -27,6 +32,13 @@ use crate::resources::{Camera, Input, ShaderState, Time};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
+    env_logger::Builder::from_env(Env::default().default_filter_or(if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "warn"
+    }))
+    .init();
+
     let event_loop = winit::event_loop::EventLoop::new();
     let window_builder = WindowBuilder::new();
     let template = ConfigTemplateBuilder::new();
@@ -40,7 +52,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         })
         .unwrap();
 
-    println!("Picked a config with {} samples", gl_config.num_samples());
+    info!("Picked a config with {} samples", gl_config.num_samples());
 
     let window = window.unwrap();
     window
@@ -65,36 +77,36 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
     let gl_context = not_current_gl_context.make_current(&gl_surface).unwrap();
 
-    gl::load_with(|s| {
-        let s = CString::new(s).unwrap();
-        gl_display.get_proc_address(s.as_c_str())
-    });
+    gl_surface
+        .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
+        .unwrap();
 
-    debug::print_gl_info();
+    let gl = unsafe {
+        glow::Context::from_loader_function(|s| {
+            let s = CString::new(s).expect("failed to construct C string for gl proc address");
+            gl_display.get_proc_address(&s)
+        })
+    };
+    let gl = Arc::new(gl);
 
     unsafe {
-        gl::Enable(gl::DEPTH_TEST);
-        gl::DepthFunc(gl::LESS);
+        info!("Vendor: {}", gl.get_parameter_string(glow::VENDOR));
+        info!("Renderer: {}", gl.get_parameter_string(glow::VENDOR));
+        info!("OpenGL Version: {}", gl.get_parameter_string(glow::VENDOR));
+        info!("GLSL Version: {}", gl.get_parameter_string(glow::VENDOR));
 
-        gl::Enable(gl::CULL_FACE);
-
-        gl::Disable(gl::DITHER);
-
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-
-        gl::ClearColor(0.4, 0.4, 1.0, 1.0);
+        gl.enable(glow::BLEND);
+        gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
     }
 
-    let shader = ShaderBuilder::new()
+    let shader = ShaderBuilder::new(&gl)
         .add_shader("shaders/simple.vert", ShaderType::Vertex)?
         .add_shader("shaders/simple.frag", ShaderType::Fragment)?
         .link()?;
-    shader.activate();
 
     let mut world = World::new();
     world.spawn((
-        Mesh::cube(5.0, 5.0, 5.0),
+        Mesh::cube(&gl, 5.0, 5.0, 5.0),
         TransformBundle {
             position: Position::new(5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -102,7 +114,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
     world.spawn((
-        Mesh::cube(5.0, 5.0, 5.0),
+        Mesh::cube(&gl, 5.0, 5.0, 5.0),
         TransformBundle {
             position: Position::new(-5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -117,6 +129,8 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
+    world.insert_resource(resources::GlContext::new(gl.clone()));
+    world.insert_resource(ShaderState::new(shader));
     world.insert_resource(Camera::new(
         perspective,
         glm::vec3(0.0, 0.0, 3.0),
@@ -125,7 +139,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         -90.0,
         0.0,
     ));
-    world.insert_resource(ShaderState::new(shader.program_id));
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
@@ -136,6 +149,8 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut render_schedule = Schedule::new();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     render_schedule.add_system(renderer::render);
+
+    let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
 
     let mut previous_frame_time = Instant::now();
 
@@ -148,50 +163,66 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         control_flow.set_poll();
 
         match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
-                    ..
-                } => match keycode {
-                    VirtualKeyCode::Escape => control_flow.set_exit(),
-                    k => world.resource_mut::<Input>().handle_keyboard_input(k, state),
-                },
-                WindowEvent::Resized(size) => {
-                    if size.width != 0 && size.height != 0 {
-                        let perspective = glm::perspective(
-                            80.0_f32.to_radians(),
-                            size.width as f32 / size.height as f32,
-                            0.1,
-                            350.0,
-                        );
-                        world.resource_mut::<Camera>().projection = perspective;
+            Event::WindowEvent { event, .. } => {
+                let event_response = egui_glow.on_event(&event);
 
-                        gl_surface.resize(
-                            &gl_context,
-                            size.width.try_into().unwrap(),
-                            size.height.try_into().unwrap(),
-                        );
+                if !event_response.consumed {
+                    match event {
+                        WindowEvent::KeyboardInput {
+                            input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
+                            ..
+                        } => match keycode {
+                            VirtualKeyCode::Escape => control_flow.set_exit(),
+                            k => world.resource_mut::<Input>().handle_keyboard_input(k, state),
+                        },
+                        WindowEvent::Resized(size) => {
+                            if size.width != 0 && size.height != 0 {
+                                let perspective = glm::perspective(
+                                    80.0_f32.to_radians(),
+                                    size.width as f32 / size.height as f32,
+                                    0.1,
+                                    350.0,
+                                );
+                                world.resource_mut::<Camera>().projection = perspective;
+
+                                gl_surface.resize(
+                                    &gl_context,
+                                    size.width.try_into().unwrap(),
+                                    size.height.try_into().unwrap(),
+                                );
+                            }
+                        }
+                        WindowEvent::CloseRequested => {
+                            control_flow.set_exit();
+                        }
+                        _ => (),
                     }
                 }
-                WindowEvent::CloseRequested => {
-                    control_flow.set_exit();
-                }
-                _ => (),
-            },
+            }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
                 world.resource_mut::<Input>().mouse_delta = delta;
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::RedrawEventsCleared => unsafe {
-                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            Event::RedrawEventsCleared => {
+                egui_glow.run(&window, |egui_ctx| {
+                    egui::SidePanel::left("my_side_panel").show(egui_ctx, |ui| {
+                        ui.heading("Hello World!");
+                        if ui.button("Click me").clicked() {
+                            info!("Button clicked");
+                        }
+                    });
+                });
 
                 schedule.run(&mut world);
                 render_schedule.run(&mut world);
 
+                egui_glow.paint(&window);
+
                 gl_surface.swap_buffers(&gl_context).unwrap();
-            },
+            }
+            Event::LoopDestroyed => egui_glow.destroy(),
             _ => (),
         }
     });

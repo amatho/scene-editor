@@ -1,9 +1,34 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
-use gl::types::GLuint;
+use glow::Context;
 use nalgebra_glm as glm;
 use winit::event::{ElementState, VirtualKeyCode};
+
+use crate::shader::Shader;
+
+#[derive(Resource)]
+pub struct GlContext {
+    pub gl: Arc<Context>,
+}
+
+impl GlContext {
+    pub fn new(gl: Arc<Context>) -> Self {
+        Self { gl }
+    }
+}
+
+#[derive(Resource)]
+pub struct ShaderState {
+    pub shader: Shader,
+}
+
+impl ShaderState {
+    pub fn new(shader: Shader) -> Self {
+        Self { shader }
+    }
+}
 
 #[derive(Resource, Default)]
 pub struct Camera {
@@ -27,17 +52,6 @@ impl Camera {
         pitch: f32,
     ) -> Self {
         Self { projection, pos, front, up, yaw, pitch }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct ShaderState {
-    pub program_id: GLuint,
-}
-
-impl ShaderState {
-    pub fn new(program_id: GLuint) -> Self {
-        Self { program_id }
     }
 }
 

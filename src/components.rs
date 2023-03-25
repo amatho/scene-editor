@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use gl::types::GLuint;
+use glow::{Context, VertexArray};
 use nalgebra_glm::{Vec2, Vec3};
 
 use crate::gl_util;
@@ -50,26 +50,27 @@ pub struct TransformBundle {
     pub scale: Scale,
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 pub struct Mesh {
-    pub vao_id: GLuint,
+    pub vao: VertexArray,
     pub num_indices: usize,
 }
 
 impl Mesh {
     pub fn new(
+        gl: &Context,
         vertices: &[Vec3],
-        indices: &[gl::types::GLuint],
+        indices: &[u32],
         normals: &[Vec3],
         texture_coords: &[Vec2],
     ) -> Self {
-        let vao_id = unsafe { gl_util::create_vao(vertices, indices, normals, texture_coords) };
+        let vao = unsafe { gl_util::create_vao(gl, vertices, indices, normals, texture_coords) };
         let num_indices = indices.len();
 
-        Self { vao_id, num_indices }
+        Self { vao, num_indices }
     }
 
-    pub fn cube(width: f32, height: f32, depth: f32) -> Self {
+    pub fn cube(gl: &Context, width: f32, height: f32, depth: f32) -> Self {
         let half_width = width / 2.0;
         let half_height = height / 2.0;
         let half_depth = depth / 2.0;
@@ -173,6 +174,6 @@ impl Mesh {
             Vec3::new(0.0, 1.0, 0.0),
         ];
 
-        Mesh::new(&vertices, &indices, &normals, &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()])
+        Mesh::new(gl, &vertices, &indices, &normals, &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()])
     }
 }

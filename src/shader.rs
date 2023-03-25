@@ -1,18 +1,15 @@
-use std::ffi::CString;
+use std::fs;
 use std::path::Path;
-use std::{fs, ptr};
 
-use gl::types::GLuint;
+use glow::{Context, HasContext};
 
 pub struct Shader {
-    pub program_id: GLuint,
+    pub program: glow::Program,
 }
 
 impl Shader {
-    pub fn activate(&self) {
-        unsafe {
-            gl::UseProgram(self.program_id);
-        }
+    pub fn activate(&self, gl: &Context) {
+        unsafe { gl.use_program(Some(self.program)) }
     }
 }
 
@@ -21,13 +18,14 @@ pub enum ShaderType {
     Fragment,
 }
 
-pub struct ShaderBuilder {
-    shaders: Vec<GLuint>,
+pub struct ShaderBuilder<'a> {
+    gl: &'a Context,
+    shaders: Vec<glow::Shader>,
 }
 
-impl ShaderBuilder {
-    pub fn new() -> Self {
-        Self { shaders: Vec::new() }
+impl<'a> ShaderBuilder<'a> {
+    pub fn new(gl: &'a Context) -> Self {
+        Self { gl, shaders: Vec::new() }
     }
 
     pub fn add_shader<P: AsRef<Path>>(
@@ -35,72 +33,58 @@ impl ShaderBuilder {
         path: P,
         shader_type: ShaderType,
     ) -> Result<Self, String> {
-        let shader_contents = fs::read(&path).map_err(|e| format!("could not add shader: {e}"))?;
+        let shader_bytes = fs::read(&path).map_err(|e| format!("could not add shader: {e}"))?;
+        let shader_source = String::from_utf8_lossy(&shader_bytes);
         let shader_enum = match shader_type {
-            ShaderType::Vertex => gl::VERTEX_SHADER,
-            ShaderType::Fragment => gl::FRAGMENT_SHADER,
+            ShaderType::Vertex => glow::VERTEX_SHADER,
+            ShaderType::Fragment => glow::FRAGMENT_SHADER,
         };
 
-        let shader_id = unsafe {
-            let shader = gl::CreateShader(shader_enum);
-            let shader_contents = CString::new(shader_contents)
-                .map_err(|_| String::from("could not create CString from shader source"))?;
-            gl::ShaderSource(shader, 1, &shader_contents.as_ptr(), ptr::null());
-            gl::CompileShader(shader);
+        let shader = unsafe {
+            let shader = self.gl.create_shader(shader_enum)?;
+            self.gl.shader_source(shader, &shader_source);
+            self.gl.compile_shader(shader);
 
-            let mut success = 0;
-            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
-            if success == 0 {
-                let mut info_log = [0u8; 512];
-                gl::GetShaderInfoLog(shader, 512, ptr::null_mut(), info_log.as_mut_ptr().cast());
+            if !self.gl.get_shader_compile_status(shader) {
                 return Err(format!(
                     "shader \"{}\" compilation failed:\n{}",
                     path.as_ref().display(),
-                    String::from_utf8_lossy(&info_log)
+                    self.gl.get_shader_info_log(shader)
                 ));
             }
             shader
         };
 
-        self.shaders.push(shader_id);
+        self.shaders.push(shader);
         Ok(self)
     }
 
     pub fn link(self) -> Result<Shader, String> {
-        let program_id = unsafe { gl::CreateProgram() };
+        let program = unsafe { self.gl.create_program()? };
 
-        for &shader_id in &self.shaders {
+        for &shader in &self.shaders {
             unsafe {
-                gl::AttachShader(program_id, shader_id);
+                self.gl.attach_shader(program, shader);
             }
         }
 
         unsafe {
-            gl::LinkProgram(program_id);
+            self.gl.link_program(program);
 
-            let mut success = 0;
-            gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
-            if success == 0 {
-                let mut info_log = [0u8; 512];
-                gl::GetProgramInfoLog(
-                    program_id,
-                    512,
-                    ptr::null_mut(),
-                    info_log.as_mut_ptr().cast(),
-                );
+            if !self.gl.get_program_link_status(program) {
                 return Err(format!(
                     "shader program linking failed:\n{}",
-                    String::from_utf8_lossy(&info_log)
+                    self.gl.get_program_info_log(program)
                 ));
             }
         }
 
-        for shader_id in self.shaders {
+        for shader in self.shaders {
             unsafe {
-                gl::DeleteShader(shader_id);
+                self.gl.delete_shader(shader);
             }
         }
 
-        Ok(Shader { program_id })
+        Ok(Shader { program })
     }
 }

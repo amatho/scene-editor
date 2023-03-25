@@ -7,9 +7,14 @@ edition = "2021"
 
 [dependencies]
 bevy_ecs = "0.10.0"
-gl = "0.14.0"
+bytemuck = "1.13.1"
+egui = "0.21.0"
+egui_glow = { version = "0.21.0", features = ["winit"] }
+env_logger = "0.10.0"
+glow = "0.12.1"
 glutin = "0.30.6"
 glutin-winit = "0.3.0"
-nalgebra-glm = "0.18.0"
+log = "0.4.17"
+nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 raw-window-handle = "0.5.0"
 winit = "0.28.2"
