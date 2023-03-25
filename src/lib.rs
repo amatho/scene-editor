@@ -153,11 +153,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut focused = false;
 
     event_loop.run(move |event, _, control_flow| {
-        let now = Instant::now();
-        let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
-        previous_frame_time = now;
-        world.resource_mut::<Time>().delta_time = delta_time;
-
         control_flow.set_poll();
 
         match event {
@@ -239,6 +234,11 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 egui_glow.paint(&window);
 
                 gl_surface.swap_buffers(&gl_context).unwrap();
+
+                let now = Instant::now();
+                let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
+                previous_frame_time = now;
+                world.resource_mut::<Time>().delta_time = delta_time;
             }
             Event::LoopDestroyed => egui_glow.destroy(),
             _ => (),

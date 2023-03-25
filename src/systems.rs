@@ -8,7 +8,7 @@ use crate::resources::{Camera, Input, Time};
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
     let up = camera.up;
-    const CAMERA_SPEED: f32 = 100.0;
+    const CAMERA_SPEED: f32 = 25.0;
     const CAMERA_SENSITIVITY: f32 = 0.1;
 
     let speed_modifier = if input.is_pressed(VirtualKeyCode::LShift) { 3.0 } else { 1.0 };
