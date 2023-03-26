@@ -4,7 +4,7 @@ use bevy_ecs::system::{Commands, Query, Res, ResMut};
 use glow::{Context, HasContext};
 use log::debug;
 use nalgebra_glm as glm;
-use winit::event::MouseButton;
+use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::components::{Mesh, Position, Rotation, Scale, TransformBundle};
 use crate::resources::{Camera, Input, ShaderState};
@@ -50,7 +50,8 @@ pub fn create_renderer(
 
 pub fn create_spawn_object(gl: Arc<Context>) -> impl FnMut(Res<Camera>, ResMut<Input>, Commands) {
     move |camera, mut input, mut commands| {
-        if input.get_mouse_button_press(MouseButton::Left) {
+        if input.get_mouse_button_press(MouseButton::Left) || input.get_key_press(VirtualKeyCode::E)
+        {
             let spawn_pos = camera.pos + camera.front;
             let position = Position::new(spawn_pos.x, spawn_pos.y, spawn_pos.z);
 
