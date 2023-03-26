@@ -14,7 +14,7 @@ env_logger = "0.10.0"
 glow = "0.12.1"
 glutin = "0.30.6"
 glutin-winit = "0.3.0"
-log = "0.4.17"
+log = {version = "0.4.17", features = ["max_level_trace", "release_max_level_info"] }
 nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 raw-window-handle = "0.5.0"
 winit = "0.28.2"

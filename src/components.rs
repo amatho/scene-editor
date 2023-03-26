@@ -4,7 +4,7 @@ use nalgebra_glm::{Vec2, Vec3};
 
 use crate::gl_util;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct Position {
     pub x: f32,
     pub y: f32,
@@ -17,7 +17,7 @@ impl Position {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct Rotation {
     pub x: f32,
     pub y: f32,
@@ -30,7 +30,7 @@ impl Rotation {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Scale {
     pub x: f32,
     pub y: f32,

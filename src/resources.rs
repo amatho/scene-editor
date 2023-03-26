@@ -1,23 +1,10 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
-use glow::Context;
 use nalgebra_glm as glm;
-use winit::event::{ElementState, VirtualKeyCode};
+use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 
 use crate::shader::Shader;
-
-#[derive(Resource)]
-pub struct GlContext {
-    pub gl: Arc<Context>,
-}
-
-impl GlContext {
-    pub fn new(gl: Arc<Context>) -> Self {
-        Self { gl }
-    }
-}
 
 #[derive(Resource)]
 pub struct ShaderState {
@@ -64,6 +51,7 @@ pub struct Time {
 pub struct Input {
     keys: HashSet<VirtualKeyCode>,
     pub mouse_delta: (f64, f64),
+    mouse_buttons: HashSet<MouseButton>,
 }
 
 impl Input {
@@ -78,7 +66,30 @@ impl Input {
         }
     }
 
-    pub fn is_pressed(&self, keycode: VirtualKeyCode) -> bool {
+    pub fn handle_mouse_button_input(&mut self, button: MouseButton, state: ElementState) {
+        match state {
+            ElementState::Pressed => {
+                self.mouse_buttons.insert(button);
+            }
+            ElementState::Released => {
+                self.mouse_buttons.remove(&button);
+            }
+        }
+    }
+
+    pub fn get_key_press(&mut self, keycode: VirtualKeyCode) -> bool {
+        self.keys.remove(&keycode)
+    }
+
+    pub fn get_key_press_continuous(&self, keycode: VirtualKeyCode) -> bool {
         self.keys.contains(&keycode)
+    }
+
+    pub fn get_mouse_button_press(&mut self, button: MouseButton) -> bool {
+        self.mouse_buttons.remove(&button)
+    }
+
+    pub fn get_mouse_button_press_continuous(&self, button: MouseButton) -> bool {
+        self.mouse_buttons.contains(&button)
     }
 }

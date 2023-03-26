@@ -1,6 +1,6 @@
 mod components;
+mod gl_systems;
 mod gl_util;
-mod renderer;
 mod resources;
 mod shader;
 mod systems;
@@ -126,7 +126,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
-    world.insert_resource(resources::GlContext::new(gl.clone()));
     world.insert_resource(ShaderState::new(shader));
     world.insert_resource(Camera::new(
         perspective,
@@ -143,9 +142,12 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     schedule.add_system(systems::move_camera);
     schedule.add_system(systems::rotate_objects);
 
-    let mut render_schedule = Schedule::new();
-    render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    render_schedule.add_system(renderer::render);
+    // OpenGL context cannot be shared between threads, so we run OpenGL systems
+    // in a single threaded schedule.
+    let mut gl_schedule = Schedule::new();
+    gl_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    gl_schedule.add_system(gl_systems::create_spawn_object(gl.clone()));
+    gl_schedule.add_system(gl_systems::create_renderer(gl.clone()));
 
     let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
 
@@ -161,23 +163,29 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
                 if !consumed {
                     match event {
-                        WindowEvent::MouseInput {
-                            state: ElementState::Pressed,
-                            button: MouseButton::Left,
-                            ..
-                        } => {
-                            if focused {
-                                window.set_cursor_grab(CursorGrabMode::None).unwrap();
-                                window.set_cursor_visible(true);
-                            } else {
-                                window
-                                    .set_cursor_grab(CursorGrabMode::Confined)
-                                    .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
-                                    .unwrap();
-                                window.set_cursor_visible(false);
+                        WindowEvent::MouseInput { state, button: MouseButton::Right, .. } => {
+                            match state {
+                                ElementState::Pressed => {
+                                    window
+                                        .set_cursor_grab(CursorGrabMode::Confined)
+                                        .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
+                                        .unwrap();
+                                    window.set_cursor_visible(false);
+                                    focused = true;
+                                }
+                                ElementState::Released => {
+                                    window.set_cursor_grab(CursorGrabMode::None).unwrap();
+                                    window.set_cursor_visible(true);
+                                    focused = false;
+                                }
                             }
-
-                            focused = !focused;
+                        }
+                        WindowEvent::MouseInput { state, button, .. } => {
+                            if focused {
+                                world
+                                    .resource_mut::<Input>()
+                                    .handle_mouse_button_input(button, state);
+                            }
                         }
                         WindowEvent::KeyboardInput {
                             input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
@@ -229,7 +237,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 });
 
                 schedule.run(&mut world);
-                render_schedule.run(&mut world);
+                gl_schedule.run(&mut world);
 
                 egui_glow.paint(&window);
 

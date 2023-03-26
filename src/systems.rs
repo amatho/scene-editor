@@ -9,9 +9,10 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
     let front = camera.front;
     let up = camera.up;
     const CAMERA_SPEED: f32 = 25.0;
-    const CAMERA_SENSITIVITY: f32 = 0.1;
+    const CAMERA_SENSITIVITY: f32 = 0.3;
 
-    let speed_modifier = if input.is_pressed(VirtualKeyCode::LShift) { 3.0 } else { 1.0 };
+    let speed_modifier =
+        if input.get_key_press_continuous(VirtualKeyCode::LShift) { 3.0 } else { 1.0 };
 
     camera.yaw += input.mouse_delta.0 as f32 * CAMERA_SENSITIVITY;
     camera.pitch -= input.mouse_delta.1 as f32 * CAMERA_SENSITIVITY;
@@ -25,22 +26,22 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
     input.mouse_delta = (0.0, 0.0);
 
     let speed = CAMERA_SPEED * time.delta_time * speed_modifier;
-    if input.is_pressed(VirtualKeyCode::W) {
+    if input.get_key_press_continuous(VirtualKeyCode::W) {
         camera.pos += speed * front;
     }
-    if input.is_pressed(VirtualKeyCode::S) {
+    if input.get_key_press_continuous(VirtualKeyCode::S) {
         camera.pos -= speed * front;
     }
-    if input.is_pressed(VirtualKeyCode::A) {
+    if input.get_key_press_continuous(VirtualKeyCode::A) {
         camera.pos -= speed * glm::normalize(&glm::cross(&front, &up));
     }
-    if input.is_pressed(VirtualKeyCode::D) {
+    if input.get_key_press_continuous(VirtualKeyCode::D) {
         camera.pos += speed * glm::normalize(&glm::cross(&front, &up));
     }
-    if input.is_pressed(VirtualKeyCode::Space) {
+    if input.get_key_press_continuous(VirtualKeyCode::Space) {
         camera.pos += speed * up;
     }
-    if input.is_pressed(VirtualKeyCode::LControl) {
+    if input.get_key_press_continuous(VirtualKeyCode::LControl) {
         camera.pos -= speed * up;
     }
 }
