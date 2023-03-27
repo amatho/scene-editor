@@ -1,8 +1,12 @@
-use bevy_ecs::system::{Query, Res, ResMut};
-use nalgebra_glm as glm;
-use winit::event::VirtualKeyCode;
+use std::sync::Arc;
 
-use crate::components::Rotation;
+use bevy_ecs::prelude::*;
+use glow::Context;
+use log::debug;
+use nalgebra_glm as glm;
+use winit::event::{MouseButton, VirtualKeyCode};
+
+use crate::components::{Mesh, Position, Rotation, TransformBundle};
 use crate::resources::{Camera, Input, Time};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
@@ -52,5 +56,24 @@ pub fn rotate_objects(time: Res<Time>, mut query: Query<&mut Rotation>) {
         r.x += time.delta_time;
         r.y += time.delta_time;
         r.z += time.delta_time;
+    }
+}
+
+pub fn spawn_object(
+    gl: NonSend<Arc<Context>>,
+    camera: Res<Camera>,
+    mut input: ResMut<Input>,
+    mut commands: Commands,
+) {
+    if input.get_mouse_button_press(MouseButton::Left) || input.get_key_press(VirtualKeyCode::E) {
+        let spawn_pos = camera.pos + camera.front;
+        let position = Position::new(spawn_pos.x, spawn_pos.y, spawn_pos.z);
+
+        debug!("spawning a cube at {:?}", position);
+
+        commands.spawn((
+            Mesh::cube(&gl, 1.0, 1.0, 1.0),
+            TransformBundle { position, ..Default::default() },
+        ));
     }
 }

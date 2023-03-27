@@ -1,6 +1,6 @@
 mod components;
-mod gl_systems;
 mod gl_util;
+mod renderer;
 mod resources;
 mod shader;
 mod systems;
@@ -126,6 +126,8 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
+    // Make sure systems using OpenGL runs on the main thread
+    world.insert_non_send_resource(gl.clone());
     world.insert_resource(ShaderState::new(shader));
     world.insert_resource(Camera::new(
         perspective,
@@ -141,13 +143,11 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut schedule = Schedule::default();
     schedule.add_system(systems::move_camera);
     schedule.add_system(systems::rotate_objects);
+    schedule.add_system(systems::spawn_object);
 
-    // OpenGL context cannot be shared between threads, so we run OpenGL systems
-    // in a single threaded schedule.
-    let mut gl_schedule = Schedule::new();
-    gl_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    gl_schedule.add_system(gl_systems::create_spawn_object(gl.clone()));
-    gl_schedule.add_system(gl_systems::create_renderer(gl.clone()));
+    let mut render_schedule = Schedule::new();
+    render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+    render_schedule.add_system(renderer::render);
 
     let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
 
@@ -237,7 +237,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 });
 
                 schedule.run(&mut world);
-                gl_schedule.run(&mut world);
+                render_schedule.run(&mut world);
 
                 egui_glow.paint(&window);
 
