@@ -39,17 +39,25 @@ pub unsafe fn create_vao(
     indices: &[u32],
     normals: &[glm::Vec3],
     texture_coords: &[glm::Vec2],
-) -> VertexArray {
+) -> (VertexArray, [Buffer; 4]) {
     let vao = gl.create_vertex_array().unwrap();
     gl.bind_vertex_array(Some(vao));
 
-    generate_attribute(gl, 0, 3, vertices, false);
+    let vert_buf = generate_attribute(gl, 0, 3, vertices, false);
 
-    generate_attribute(gl, 1, 3, normals, false);
+    let normal_buf = generate_attribute(gl, 1, 3, normals, false);
 
-    generate_attribute(gl, 2, 2, texture_coords, false);
+    let tex_buf = generate_attribute(gl, 2, 2, texture_coords, false);
 
-    buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
+    let indices_buf = buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
 
-    vao
+    (vao, [vert_buf, normal_buf, tex_buf, indices_buf])
+}
+
+pub unsafe fn delete_vao(gl: &Context, vao: VertexArray, buffers: &[Buffer]) {
+    gl.bind_vertex_array(Some(vao));
+    for buf in buffers {
+        gl.delete_buffer(*buf);
+    }
+    gl.delete_vertex_array(vao);
 }

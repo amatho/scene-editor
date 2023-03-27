@@ -4,6 +4,7 @@ mod renderer;
 mod resources;
 mod shader;
 mod systems;
+mod ui;
 
 use std::borrow::Cow;
 use std::ffi::CString;
@@ -11,9 +12,9 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Instant;
 
-use bevy_ecs::prelude::Entity;
-use bevy_ecs::schedule::{ExecutorKind, IntoSystemConfig, Schedule};
+use bevy_ecs::schedule::{ExecutorKind, IntoSystemConfigs, Schedule};
 use bevy_ecs::world::World;
+use egui_glow::EguiGlow;
 use env_logger::Env;
 use glow::HasContext as _;
 use glutin::config::ConfigTemplateBuilder;
@@ -30,8 +31,8 @@ use winit::event::{
 };
 use winit::window::{CursorGrabMode, WindowBuilder};
 
-use crate::components::{Mesh, Position, Rotation, Selected, TransformBundle};
-use crate::resources::{Camera, Input, ShaderState, Time, WindowState};
+use crate::components::{Mesh, Position, Rotation, TransformBundle};
+use crate::resources::{Camera, EguiGlowRes, Input, ShaderState, Time, WindowState, WinitWindow};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
@@ -98,11 +99,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
     }
 
-    let shader = ShaderBuilder::new(&gl)
-        .add_shader("shaders/simple.vert", ShaderType::Vertex)?
-        .add_shader("shaders/simple.frag", ShaderType::Fragment)?
-        .link()?;
-
     let mut world = World::new();
     world.spawn((
         Mesh::cube(&gl, 5.0, 5.0, 5.0),
@@ -121,6 +117,16 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
 
+    let shader = ShaderBuilder::new(&gl)
+        .add_shader("shaders/simple.vert", ShaderType::Vertex)?
+        .add_shader("shaders/simple.frag", ShaderType::Fragment)?
+        .link()?;
+
+    let outline = ShaderBuilder::new(&gl)
+        .add_shader("shaders/outline.vert", ShaderType::Vertex)?
+        .add_shader("shaders/outline.frag", ShaderType::Fragment)?
+        .link()?;
+
     let window_size = window.inner_size();
     let perspective = glm::perspective(
         80.0_f32.to_radians(),
@@ -128,9 +134,10 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.1,
         350.0,
     );
+
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(ShaderState::new(shader));
+    world.insert_resource(ShaderState::new(shader, outline));
     world.insert_resource(Camera::new(
         perspective,
         glm::vec3(0.0, 0.0, 3.0),
@@ -140,20 +147,21 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.0,
     ));
     world.insert_resource(WindowState::new(window_size.width, window_size.height, false));
+    let window = Arc::new(window);
+    world.insert_resource(WinitWindow(window.clone()));
+    world.insert_resource(EguiGlowRes(EguiGlow::new(&event_loop, gl, None)));
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
     let mut schedule = Schedule::default();
+    schedule.add_system(ui::run_ui);
     schedule.add_system(systems::move_camera);
     schedule.add_system(systems::rotate_objects);
     schedule.add_system(systems::spawn_object);
 
     let mut render_schedule = Schedule::new();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    render_schedule.add_system(renderer::render);
-    render_schedule.add_system(systems::select_object.after(renderer::render));
-
-    let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
+    render_schedule.add_systems((renderer::render, systems::select_object, ui::paint_ui).chain());
 
     let mut previous_frame_time = Instant::now();
 
@@ -163,7 +171,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         match event {
             Event::WindowEvent { event, .. } => {
                 let camera_focused = world.resource::<WindowState>().camera_focused;
-                let event_response = egui_glow.on_event(&event);
+                let event_response = world.resource_mut::<EguiGlowRes>().on_event(&event);
                 let consumed = if camera_focused { false } else { event_response.consumed };
 
                 if !consumed {
@@ -217,6 +225,13 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                                 );
                             }
                         }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            gl_surface.resize(
+                                &gl_context,
+                                new_inner_size.width.try_into().unwrap(),
+                                new_inner_size.height.try_into().unwrap(),
+                            );
+                        }
                         WindowEvent::CloseRequested => {
                             control_flow.set_exit();
                         }
@@ -233,27 +248,8 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 window.request_redraw();
             }
             Event::RedrawEventsCleared => {
-                let selected =
-                    world.query::<(Entity, &Selected)>().iter(&world).next().map(|(e, _)| e);
-                egui_glow.run(&window, |ctx| {
-                    egui::SidePanel::left("my_side_panel").show(ctx, |ui| {
-                        ui.heading("Hello World!");
-                        if ui.button("Click me").clicked() {
-                            info!("Button clicked");
-                        }
-                    });
-
-                    if let Some(entity) = selected {
-                        egui::Window::new("Selected Entity").show(ctx, |ui| {
-                            ui.label(format!("Entity {}", entity.index()));
-                        });
-                    }
-                });
-
                 schedule.run(&mut world);
                 render_schedule.run(&mut world);
-
-                egui_glow.paint(&window);
 
                 gl_surface.swap_buffers(&gl_context).unwrap();
 
@@ -262,7 +258,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 previous_frame_time = now;
                 world.resource_mut::<Time>().delta_time = delta_time;
             }
-            Event::LoopDestroyed => egui_glow.destroy(),
+            Event::LoopDestroyed => world.resource_mut::<EguiGlowRes>().destroy(),
             _ => (),
         }
     });

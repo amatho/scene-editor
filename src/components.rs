@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use glow::{Context, VertexArray};
+use glow::{Buffer, Context, VertexArray};
 use nalgebra_glm::{Vec2, Vec3};
 
 use crate::gl_util;
@@ -54,6 +54,7 @@ pub struct TransformBundle {
 pub struct Mesh {
     pub vao: VertexArray,
     pub num_indices: usize,
+    buffers: [Buffer; 4],
 }
 
 impl Mesh {
@@ -64,10 +65,11 @@ impl Mesh {
         normals: &[Vec3],
         texture_coords: &[Vec2],
     ) -> Self {
-        let vao = unsafe { gl_util::create_vao(gl, vertices, indices, normals, texture_coords) };
+        let (vao, buffers) =
+            unsafe { gl_util::create_vao(gl, vertices, indices, normals, texture_coords) };
         let num_indices = indices.len();
 
-        Self { vao, num_indices }
+        Self { vao, num_indices, buffers }
     }
 
     pub fn cube(gl: &Context, width: f32, height: f32, depth: f32) -> Self {
@@ -175,6 +177,13 @@ impl Mesh {
         ];
 
         Mesh::new(gl, &vertices, &indices, &normals, &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()])
+    }
+
+    /// # Safety
+    ///
+    /// The VAO and buffers of this mesh are no longer valid and should not be used.
+    pub unsafe fn destroy(&self, gl: &Context) {
+        gl_util::delete_vao(gl, self.vao, &self.buffers);
     }
 }
 

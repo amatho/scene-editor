@@ -1,19 +1,24 @@
 use std::collections::HashSet;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
+use egui_glow::EguiGlow;
 use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
+use winit::window::Window;
 
 use crate::shader::Shader;
 
 #[derive(Resource)]
 pub struct ShaderState {
     pub shader: Shader,
+    pub outline: Shader,
 }
 
 impl ShaderState {
-    pub fn new(shader: Shader) -> Self {
-        Self { shader }
+    pub fn new(shader: Shader, outline: Shader) -> Self {
+        Self { shader, outline }
     }
 }
 
@@ -52,6 +57,40 @@ pub struct WindowState {
 impl WindowState {
     pub fn new(width: u32, height: u32, camera_focused: bool) -> Self {
         Self { width, height, camera_focused }
+    }
+}
+
+#[derive(Resource)]
+pub struct WinitWindow(pub Arc<Window>);
+
+impl DerefMut for WinitWindow {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Deref for WinitWindow {
+    type Target = Arc<Window>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Resource)]
+pub struct EguiGlowRes(pub EguiGlow);
+
+impl DerefMut for EguiGlowRes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Deref for EguiGlowRes {
+    type Target = EguiGlow;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
