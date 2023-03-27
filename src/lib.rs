@@ -128,18 +128,12 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         .link()?;
 
     let window_size = window.inner_size();
-    let perspective = glm::perspective(
-        80.0_f32.to_radians(),
-        window_size.width as f32 / window_size.height as f32,
-        0.1,
-        350.0,
-    );
 
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
     world.insert_resource(ShaderState::new(shader, outline));
     world.insert_resource(Camera::new(
-        perspective,
+        Camera::perspective(window_size.width, window_size.height),
         glm::vec3(0.0, 0.0, 3.0),
         glm::vec3(0.0, 0.0, -1.0),
         glm::vec3(0.0, 1.0, 0.0),
@@ -210,13 +204,11 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                         },
                         WindowEvent::Resized(size) => {
                             if size.width != 0 && size.height != 0 {
-                                let perspective = glm::perspective(
-                                    80.0_f32.to_radians(),
-                                    size.width as f32 / size.height as f32,
-                                    0.1,
-                                    350.0,
-                                );
-                                world.resource_mut::<Camera>().projection = perspective;
+                                world.resource_mut::<Camera>().projection =
+                                    Camera::perspective(size.width, size.height);
+                                let mut ws = world.resource_mut::<WindowState>();
+                                ws.width = size.width;
+                                ws.height = size.height;
 
                                 gl_surface.resize(
                                     &gl_context,
@@ -226,6 +218,12 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                             }
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            world.resource_mut::<Camera>().projection =
+                                Camera::perspective(new_inner_size.width, new_inner_size.height);
+                            let mut ws = world.resource_mut::<WindowState>();
+                            ws.width = new_inner_size.width;
+                            ws.height = new_inner_size.height;
+
                             gl_surface.resize(
                                 &gl_context,
                                 new_inner_size.width.try_into().unwrap(),
