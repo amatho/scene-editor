@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
-use glow::Context;
+use glow::{Context, HasContext, PixelPackData};
 use log::debug;
 use nalgebra_glm as glm;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, Input, Time};
+use crate::components::{Mesh, Position, Rotation, Selected, StencilId, TransformBundle};
+use crate::resources::{Camera, Input, Time, WindowState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -63,9 +63,12 @@ pub fn spawn_object(
     gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
     mut input: ResMut<Input>,
+    window_state: Res<WindowState>,
     mut commands: Commands,
 ) {
-    if input.get_mouse_button_press(MouseButton::Left) || input.get_key_press(VirtualKeyCode::E) {
+    if (window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
+        || input.get_key_press(VirtualKeyCode::E)
+    {
         let spawn_pos = camera.pos + camera.front;
         let position = Position::new(spawn_pos.x, spawn_pos.y, spawn_pos.z);
 
@@ -75,5 +78,49 @@ pub fn spawn_object(
             Mesh::cube(&gl, 1.0, 1.0, 1.0),
             TransformBundle { position, ..Default::default() },
         ));
+    }
+}
+
+pub fn select_object(
+    gl: NonSend<Arc<Context>>,
+    window_state: Res<WindowState>,
+    mut input: ResMut<Input>,
+    already_selected: Query<(Entity, &Selected)>,
+    query: Query<(Entity, &StencilId)>,
+    mut commands: Commands,
+) {
+    if !window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left) {
+        for (entity, _) in &already_selected {
+            commands.entity(entity).remove::<Selected>();
+        }
+
+        let (x, y) = input.mouse_pos;
+        let index = unsafe {
+            let mut bytes = [0; 4];
+            gl.read_pixels(
+                x as i32,
+                window_state.height as i32 - y as i32 - 1,
+                1,
+                1,
+                glow::STENCIL_INDEX,
+                glow::UNSIGNED_INT,
+                PixelPackData::Slice(&mut bytes),
+            );
+            u32::from_ne_bytes(bytes) as usize
+        };
+
+        let mut found = false;
+        for (entity, stencil_id) in &query {
+            if stencil_id.0 == index {
+                commands.entity(entity).insert(Selected);
+                found = true;
+                debug!("selected entity {}", entity.index());
+                break;
+            }
+        }
+
+        if !found {
+            debug!("found no object to select");
+        }
     }
 }

@@ -11,7 +11,8 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Instant;
 
-use bevy_ecs::schedule::{ExecutorKind, Schedule};
+use bevy_ecs::prelude::Entity;
+use bevy_ecs::schedule::{ExecutorKind, IntoSystemConfig, Schedule};
 use bevy_ecs::world::World;
 use env_logger::Env;
 use glow::HasContext as _;
@@ -29,8 +30,8 @@ use winit::event::{
 };
 use winit::window::{CursorGrabMode, WindowBuilder};
 
-use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, Input, ShaderState, Time};
+use crate::components::{Mesh, Position, Rotation, Selected, TransformBundle};
+use crate::resources::{Camera, Input, ShaderState, Time, WindowState};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
@@ -43,7 +44,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window_builder = WindowBuilder::new();
-    let template = ConfigTemplateBuilder::new();
+    let template = ConfigTemplateBuilder::new().with_stencil_size(8);
     let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
 
     let (window, gl_config) = display_builder
@@ -55,6 +56,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         .unwrap();
 
     info!("Picked a config with {} samples", gl_config.num_samples());
+    info!("Picked a config with {} stencil size", gl_config.stencil_size());
 
     let window = window.unwrap();
     let raw_window_handle = window.raw_window_handle();
@@ -137,6 +139,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         -90.0,
         0.0,
     ));
+    world.insert_resource(WindowState::new(window_size.width, window_size.height, false));
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
@@ -148,22 +151,26 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut render_schedule = Schedule::new();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     render_schedule.add_system(renderer::render);
+    render_schedule.add_system(systems::select_object.after(renderer::render));
 
     let mut egui_glow = egui_glow::EguiGlow::new(&event_loop, gl, None);
 
     let mut previous_frame_time = Instant::now();
-    let mut focused = false;
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
 
         match event {
             Event::WindowEvent { event, .. } => {
-                let consumed = if focused { false } else { egui_glow.on_event(&event).consumed };
+                let camera_focused = world.resource::<WindowState>().camera_focused;
+                let event_response = egui_glow.on_event(&event);
+                let consumed = if camera_focused { false } else { event_response.consumed };
 
                 if !consumed {
                     match event {
                         WindowEvent::MouseInput { state, button: MouseButton::Right, .. } => {
+                            let camera_focused =
+                                &mut world.resource_mut::<WindowState>().camera_focused;
                             match state {
                                 ElementState::Pressed => {
                                     window
@@ -171,21 +178,20 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                                         .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked))
                                         .unwrap();
                                     window.set_cursor_visible(false);
-                                    focused = true;
+                                    *camera_focused = true;
                                 }
                                 ElementState::Released => {
                                     window.set_cursor_grab(CursorGrabMode::None).unwrap();
                                     window.set_cursor_visible(true);
-                                    focused = false;
+                                    *camera_focused = false;
                                 }
                             }
                         }
                         WindowEvent::MouseInput { state, button, .. } => {
-                            if focused {
-                                world
-                                    .resource_mut::<Input>()
-                                    .handle_mouse_button_input(button, state);
-                            }
+                            world.resource_mut::<Input>().handle_mouse_button_input(button, state);
+                        }
+                        WindowEvent::CursorMoved { position, .. } => {
+                            world.resource_mut::<Input>().handle_mouse_move(position.into());
                         }
                         WindowEvent::KeyboardInput {
                             input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
@@ -219,7 +225,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 }
             }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
-                if focused {
+                if world.resource::<WindowState>().camera_focused {
                     world.resource_mut::<Input>().mouse_delta = delta;
                 }
             }
@@ -227,13 +233,21 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 window.request_redraw();
             }
             Event::RedrawEventsCleared => {
-                egui_glow.run(&window, |egui_ctx| {
-                    egui::SidePanel::left("my_side_panel").show(egui_ctx, |ui| {
+                let selected =
+                    world.query::<(Entity, &Selected)>().iter(&world).next().map(|(e, _)| e);
+                egui_glow.run(&window, |ctx| {
+                    egui::SidePanel::left("my_side_panel").show(ctx, |ui| {
                         ui.heading("Hello World!");
                         if ui.button("Click me").clicked() {
                             info!("Button clicked");
                         }
                     });
+
+                    if let Some(entity) = selected {
+                        egui::Window::new("Selected Entity").show(ctx, |ui| {
+                            ui.label(format!("Entity {}", entity.index()));
+                        });
+                    }
                 });
 
                 schedule.run(&mut world);

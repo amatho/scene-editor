@@ -42,6 +42,19 @@ impl Camera {
     }
 }
 
+#[derive(Resource)]
+pub struct WindowState {
+    pub width: u32,
+    pub height: u32,
+    pub camera_focused: bool,
+}
+
+impl WindowState {
+    pub fn new(width: u32, height: u32, camera_focused: bool) -> Self {
+        Self { width, height, camera_focused }
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct Time {
     pub delta_time: f32,
@@ -51,6 +64,7 @@ pub struct Time {
 pub struct Input {
     keys: HashSet<VirtualKeyCode>,
     pub mouse_delta: (f64, f64),
+    pub mouse_pos: (f64, f64),
     mouse_buttons: HashSet<MouseButton>,
 }
 
@@ -77,6 +91,10 @@ impl Input {
         }
     }
 
+    pub fn handle_mouse_move(&mut self, position: (f64, f64)) {
+        self.mouse_pos = position;
+    }
+
     pub fn get_key_press(&mut self, keycode: VirtualKeyCode) -> bool {
         self.keys.remove(&keycode)
     }
@@ -91,5 +109,9 @@ impl Input {
 
     pub fn get_mouse_button_press_continuous(&self, button: MouseButton) -> bool {
         self.mouse_buttons.contains(&button)
+    }
+
+    pub fn get_mouse_position(&self) -> (f64, f64) {
+        self.mouse_pos
     }
 }

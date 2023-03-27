@@ -177,3 +177,9 @@ impl Mesh {
         Mesh::new(gl, &vertices, &indices, &normals, &[Vec2::zeros(), Vec2::zeros(), Vec2::zeros()])
     }
 }
+
+#[derive(Component)]
+pub struct StencilId(pub usize);
+
+#[derive(Component)]
+pub struct Selected;
