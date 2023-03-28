@@ -32,7 +32,7 @@ use winit::event::{
 use winit::window::{CursorGrabMode, WindowBuilder};
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, EguiGlowRes, Input, ShaderState, Time, WindowState, WinitWindow};
+use crate::resources::{Camera, DefaultShader, Input, Time, UiState};
 use crate::shader::{ShaderBuilder, ShaderType};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
@@ -118,20 +118,20 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     ));
 
     let shader = ShaderBuilder::new(&gl)
-        .add_shader("shaders/simple.vert", ShaderType::Vertex)?
-        .add_shader("shaders/simple.frag", ShaderType::Fragment)?
+        .add_shader_source(shader::DEFAULT_VERT, ShaderType::Vertex)?
+        .add_shader_source(shader::DEFAULT_FRAG, ShaderType::Fragment)?
         .link()?;
 
     let outline = ShaderBuilder::new(&gl)
-        .add_shader("shaders/outline.vert", ShaderType::Vertex)?
-        .add_shader("shaders/outline.frag", ShaderType::Fragment)?
+        .add_shader_source(include_str!("../shaders/outline.vert"), ShaderType::Vertex)?
+        .add_shader_source(include_str!("../shaders/outline.frag"), ShaderType::Fragment)?
         .link()?;
 
     let window_size = window.inner_size();
 
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(ShaderState::new(shader, outline));
+    world.insert_resource(DefaultShader::new(shader, outline));
     world.insert_resource(Camera::new(
         Camera::perspective(window_size.width, window_size.height),
         glm::vec3(0.0, 0.0, 3.0),
@@ -140,10 +140,8 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         -90.0,
         0.0,
     ));
-    world.insert_resource(WindowState::new(window_size.width, window_size.height, false));
     let window = Arc::new(window);
-    world.insert_resource(WinitWindow(window.clone()));
-    world.insert_resource(EguiGlowRes(EguiGlow::new(&event_loop, gl, None)));
+    world.insert_resource(UiState::new(window.clone(), EguiGlow::new(&event_loop, gl, None)));
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
@@ -164,15 +162,15 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
         match event {
             Event::WindowEvent { event, .. } => {
-                let camera_focused = world.resource::<WindowState>().camera_focused;
-                let event_response = world.resource_mut::<EguiGlowRes>().on_event(&event);
+                let camera_focused = world.resource::<UiState>().camera_focused;
+                let event_response = world.resource_mut::<UiState>().egui_glow.on_event(&event);
                 let consumed = if camera_focused { false } else { event_response.consumed };
 
                 if !consumed {
                     match event {
                         WindowEvent::MouseInput { state, button: MouseButton::Right, .. } => {
                             let camera_focused =
-                                &mut world.resource_mut::<WindowState>().camera_focused;
+                                &mut world.resource_mut::<UiState>().camera_focused;
                             match state {
                                 ElementState::Pressed => {
                                     window
@@ -206,7 +204,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                             if size.width != 0 && size.height != 0 {
                                 world.resource_mut::<Camera>().projection =
                                     Camera::perspective(size.width, size.height);
-                                let mut ws = world.resource_mut::<WindowState>();
+                                let mut ws = world.resource_mut::<UiState>();
                                 ws.width = size.width;
                                 ws.height = size.height;
 
@@ -220,7 +218,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                             world.resource_mut::<Camera>().projection =
                                 Camera::perspective(new_inner_size.width, new_inner_size.height);
-                            let mut ws = world.resource_mut::<WindowState>();
+                            let mut ws = world.resource_mut::<UiState>();
                             ws.width = new_inner_size.width;
                             ws.height = new_inner_size.height;
 
@@ -238,7 +236,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 }
             }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
-                if world.resource::<WindowState>().camera_focused {
+                if world.resource::<UiState>().camera_focused {
                     world.resource_mut::<Input>().mouse_delta = delta;
                 }
             }
@@ -256,7 +254,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                 previous_frame_time = now;
                 world.resource_mut::<Time>().delta_time = delta_time;
             }
-            Event::LoopDestroyed => world.resource_mut::<EguiGlowRes>().destroy(),
+            Event::LoopDestroyed => world.resource_mut::<UiState>().egui_glow.destroy(),
             _ => (),
         }
     });

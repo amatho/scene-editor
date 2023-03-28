@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
@@ -11,12 +10,12 @@ use winit::window::Window;
 use crate::shader::Shader;
 
 #[derive(Resource)]
-pub struct ShaderState {
+pub struct DefaultShader {
     pub shader: Shader,
     pub outline: Shader,
 }
 
-impl ShaderState {
+impl DefaultShader {
     pub fn new(shader: Shader, outline: Shader) -> Self {
         Self { shader, outline }
     }
@@ -52,50 +51,32 @@ impl Camera {
 }
 
 #[derive(Resource)]
-pub struct WindowState {
+pub struct UiState {
+    pub window: Arc<Window>,
+    pub egui_glow: EguiGlow,
     pub width: u32,
     pub height: u32,
     pub camera_focused: bool,
+    pub side_panel_open: bool,
+    pub editing_mode: UiEditingMode,
 }
 
-impl WindowState {
-    pub fn new(width: u32, height: u32, camera_focused: bool) -> Self {
-        Self { width, height, camera_focused }
+impl UiState {
+    pub fn new(window: Arc<Window>, egui_glow: EguiGlow) -> Self {
+        let (width, height) = window.inner_size().into();
+        let camera_focused = false;
+        let side_panel_open = false;
+        let editing_mode = UiEditingMode::None;
+
+        Self { window, egui_glow, width, height, camera_focused, side_panel_open, editing_mode }
     }
 }
 
-#[derive(Resource)]
-pub struct WinitWindow(pub Arc<Window>);
-
-impl DerefMut for WinitWindow {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Deref for WinitWindow {
-    type Target = Arc<Window>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[derive(Resource)]
-pub struct EguiGlowRes(pub EguiGlow);
-
-impl DerefMut for EguiGlowRes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Deref for EguiGlowRes {
-    type Target = EguiGlow;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+#[derive(PartialEq)]
+pub enum UiEditingMode {
+    None,
+    Vertex,
+    Fragment,
 }
 
 #[derive(Resource, Default)]
@@ -152,9 +133,5 @@ impl Input {
 
     pub fn get_mouse_button_press_continuous(&self, button: MouseButton) -> bool {
         self.mouse_buttons.contains(&button)
-    }
-
-    pub fn get_mouse_position(&self) -> (f64, f64) {
-        self.mouse_pos
     }
 }

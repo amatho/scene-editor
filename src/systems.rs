@@ -7,7 +7,7 @@ use nalgebra_glm as glm;
 use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::components::{Mesh, Position, Rotation, Selected, StencilId, TransformBundle};
-use crate::resources::{Camera, Input, Time, WindowState};
+use crate::resources::{Camera, Input, Time, UiState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -63,7 +63,7 @@ pub fn spawn_object(
     gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
     mut input: ResMut<Input>,
-    window_state: Res<WindowState>,
+    window_state: Res<UiState>,
     mut commands: Commands,
 ) {
     if (window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
@@ -83,7 +83,7 @@ pub fn spawn_object(
 
 pub fn select_object(
     gl: NonSend<Arc<Context>>,
-    window_state: Res<WindowState>,
+    window_state: Res<UiState>,
     mut input: ResMut<Input>,
     already_selected: Query<(Entity, &Selected)>,
     query: Query<(Entity, &StencilId)>,

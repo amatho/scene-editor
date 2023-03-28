@@ -3,6 +3,7 @@ use glow::{Buffer, Context, VertexArray};
 use nalgebra_glm::{Vec2, Vec3};
 
 use crate::gl_util;
+use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Component, Default, Debug)]
 pub struct Position {
@@ -192,3 +193,26 @@ pub struct StencilId(pub usize);
 
 #[derive(Component)]
 pub struct Selected;
+
+#[derive(Component)]
+pub struct CustomShader {
+    pub shader: Result<Shader, String>,
+    pub vert_source: String,
+    pub frag_source: String,
+}
+
+impl CustomShader {
+    pub fn new(gl: &Context) -> Self {
+        let vert_source = include_str!("../shaders/default.vert").to_owned();
+        let frag_source = include_str!("../shaders/default.frag").to_owned();
+        let shader = Ok(ShaderBuilder::new(gl)
+            .add_shader_source(&vert_source, ShaderType::Vertex)
+            .unwrap()
+            .add_shader_source(&frag_source, ShaderType::Fragment)
+            .unwrap()
+            .link()
+            .unwrap());
+
+        Self { shader, vert_source, frag_source }
+    }
+}

@@ -4,16 +4,23 @@ use bevy_ecs::prelude::*;
 use glow::{Context, HasContext};
 use nalgebra_glm as glm;
 
-use crate::components::{Mesh, Position, Rotation, Scale, Selected, StencilId};
-use crate::resources::{Camera, ShaderState};
+use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, StencilId};
+use crate::resources::{Camera, DefaultShader};
 
-type GeometryQuery<'a> =
-    (Entity, &'a Mesh, &'a Position, &'a Rotation, &'a Scale, Option<&'a Selected>);
+type GeometryQuery<'a> = (
+    Entity,
+    &'a Mesh,
+    &'a Position,
+    &'a Rotation,
+    &'a Scale,
+    Option<&'a Selected>,
+    Option<&'a CustomShader>,
+);
 
 pub fn render(
     gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
-    shader_state: Res<ShaderState>,
+    shader_state: Res<DefaultShader>,
     query: Query<GeometryQuery>,
     mut commands: Commands,
 ) {
@@ -37,7 +44,7 @@ pub fn render(
     let vp =
         camera.projection * glm::look_at(&camera.pos, &(camera.pos + camera.front), &camera.up);
 
-    for (i, (entity, mesh, pos, rot, scale, selected)) in query.iter().enumerate() {
+    for (i, (entity, mesh, pos, rot, scale, selected, custom_shader)) in query.iter().enumerate() {
         let model = glm::translation(&glm::vec3(pos.x, pos.y, pos.z))
             * glm::rotation(rot.y, &glm::vec3(0.0, 1.0, 0.0))
             * glm::rotation(rot.x, &glm::vec3(1.0, 0.0, 0.0))
@@ -48,7 +55,11 @@ pub fn render(
         let id = i + 1;
 
         unsafe {
-            shader_state.shader.activate(&gl);
+            if let Some(CustomShader { shader: Ok(shader), .. }) = custom_shader {
+                shader.activate(&gl);
+            } else {
+                shader_state.shader.activate(&gl);
+            }
 
             let mvp_location = gl.get_uniform_location(shader_state.shader.program, "mvp");
             gl.uniform_matrix_4_f32_slice(mvp_location.as_ref(), false, glm::value_ptr(&mvp));

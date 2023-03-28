@@ -3,6 +3,9 @@ use std::path::Path;
 
 use glow::{Context, HasContext};
 
+pub const DEFAULT_VERT: &str = include_str!("../shaders/default.vert");
+pub const DEFAULT_FRAG: &str = include_str!("../shaders/default.frag");
+
 pub struct Shader {
     pub program: glow::Program,
 }
@@ -28,13 +31,23 @@ impl<'a> ShaderBuilder<'a> {
         Self { gl, shaders: Vec::new() }
     }
 
-    pub fn add_shader<P: AsRef<Path>>(
-        mut self,
+    pub fn add_shader_file<P: AsRef<Path>>(
+        self,
         path: P,
         shader_type: ShaderType,
     ) -> Result<Self, String> {
         let shader_bytes = fs::read(&path).map_err(|e| format!("could not add shader: {e}"))?;
         let shader_source = String::from_utf8_lossy(&shader_bytes);
+
+        self.add_shader_source(&shader_source, shader_type)
+            .map_err(|e| format!("{}: {e}", path.as_ref().display()))
+    }
+
+    pub fn add_shader_source(
+        mut self,
+        source: &str,
+        shader_type: ShaderType,
+    ) -> Result<Self, String> {
         let shader_enum = match shader_type {
             ShaderType::Vertex => glow::VERTEX_SHADER,
             ShaderType::Fragment => glow::FRAGMENT_SHADER,
@@ -42,13 +55,12 @@ impl<'a> ShaderBuilder<'a> {
 
         let shader = unsafe {
             let shader = self.gl.create_shader(shader_enum)?;
-            self.gl.shader_source(shader, &shader_source);
+            self.gl.shader_source(shader, source);
             self.gl.compile_shader(shader);
 
             if !self.gl.get_shader_compile_status(shader) {
                 return Err(format!(
-                    "shader \"{}\" compilation failed:\n{}",
-                    path.as_ref().display(),
+                    "shader compilation failed:\n{}",
                     self.gl.get_shader_info_log(shader)
                 ));
             }
