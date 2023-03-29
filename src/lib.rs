@@ -26,6 +26,7 @@ use glutin_winit::{DisplayBuilder, GlWindow};
 use log::info;
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
+use winit::dpi::PhysicalSize;
 use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
 };
@@ -204,19 +205,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                             k => world.resource_mut::<Input>().handle_keyboard_input(k, state),
                         },
                         WindowEvent::Resized(size) => {
-                            if size.width != 0 && size.height != 0 {
-                                world.resource_mut::<Camera>().projection =
-                                    Camera::perspective(size.width, size.height);
-                                let mut ws = world.resource_mut::<UiState>();
-                                ws.width = size.width;
-                                ws.height = size.height;
-
-                                gl_surface.resize(
-                                    &gl_context,
-                                    size.width.try_into().unwrap(),
-                                    size.height.try_into().unwrap(),
-                                );
-                            }
+                            resize(&gl_surface, &gl_context, &mut world, size);
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
                             info!(
@@ -229,17 +218,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                                 .egui_ctx
                                 .set_pixels_per_point(scale_factor as f32);
 
-                            world.resource_mut::<Camera>().projection =
-                                Camera::perspective(new_inner_size.width, new_inner_size.height);
-                            let mut ws = world.resource_mut::<UiState>();
-                            ws.width = new_inner_size.width;
-                            ws.height = new_inner_size.height;
-
-                            gl_surface.resize(
-                                &gl_context,
-                                new_inner_size.width.try_into().unwrap(),
-                                new_inner_size.height.try_into().unwrap(),
-                            );
+                            resize(&gl_surface, &gl_context, &mut world, *new_inner_size);
                         }
                         WindowEvent::CloseRequested => {
                             control_flow.set_exit();
@@ -271,4 +250,36 @@ pub fn run() -> Result<(), Cow<'static, str>> {
             _ => (),
         }
     });
+}
+
+fn resize(
+    gl_surface: &glutin::surface::Surface<glutin::surface::WindowSurface>,
+    gl_context: &glutin::context::PossiblyCurrentContext,
+    world: &mut World,
+    new_size: PhysicalSize<u32>,
+) {
+    let (width, height) = new_size.into();
+    if width != 0 && height != 0 {
+        // Update projection
+        world.resource_mut::<Camera>().projection =
+            Camera::perspective(new_size.width, new_size.height);
+
+        // Update UI state
+        let mut ws = world.resource_mut::<UiState>();
+        ws.width = width;
+        ws.height = height;
+
+        // Resize surface (no-op on most platforms, needed for compatibility)
+        gl_surface.resize(gl_context, width.try_into().unwrap(), height.try_into().unwrap());
+
+        unsafe {
+            // Resize viewport
+            world.non_send_resource::<Arc<glow::Context>>().viewport(
+                0,
+                0,
+                width as i32,
+                height as i32,
+            );
+        }
+    }
 }
