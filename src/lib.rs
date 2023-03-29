@@ -141,7 +141,10 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         0.0,
     ));
     let window = Arc::new(window);
-    world.insert_resource(UiState::new(window.clone(), EguiGlow::new(&event_loop, gl, None)));
+    let egui_glow = EguiGlow::new(&event_loop, gl, None);
+    egui_glow.egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
+    info!("set egui pixels per point to scale factor {}", window.scale_factor(),);
+    world.insert_resource(UiState::new(window.clone(), egui_glow));
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
@@ -215,7 +218,17 @@ pub fn run() -> Result<(), Cow<'static, str>> {
                                 );
                             }
                         }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
+                            info!(
+                                "scale factor changed, changing egui pixels per point to {}",
+                                scale_factor
+                            );
+                            world
+                                .resource_mut::<UiState>()
+                                .egui_glow
+                                .egui_ctx
+                                .set_pixels_per_point(scale_factor as f32);
+
                             world.resource_mut::<Camera>().projection =
                                 Camera::perspective(new_inner_size.width, new_inner_size.height);
                             let mut ws = world.resource_mut::<UiState>();
