@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
@@ -16,9 +17,19 @@ impl Shader {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum ShaderType {
     Vertex,
     Fragment,
+}
+
+impl Display for ShaderType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShaderType::Vertex => write!(f, "Vertex"),
+            ShaderType::Fragment => write!(f, "Fragment"),
+        }
+    }
 }
 
 pub struct ShaderBuilder<'a> {
@@ -60,7 +71,7 @@ impl<'a> ShaderBuilder<'a> {
 
             if !self.gl.get_shader_compile_status(shader) {
                 return Err(format!(
-                    "shader compilation failed:\n{}",
+                    "{shader_type} shader compilation failed:\n{}",
                     self.gl.get_shader_info_log(shader)
                 ));
             }

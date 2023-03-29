@@ -7,7 +7,7 @@ use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
-use crate::shader::Shader;
+use crate::shader::{Shader, ShaderType};
 
 #[derive(Resource)]
 pub struct DefaultShader {
@@ -58,7 +58,7 @@ pub struct UiState {
     pub height: u32,
     pub camera_focused: bool,
     pub side_panel_open: bool,
-    pub editing_mode: UiEditingMode,
+    pub editing_mode: Option<ShaderType>,
 }
 
 impl UiState {
@@ -66,17 +66,10 @@ impl UiState {
         let (width, height) = window.inner_size().into();
         let camera_focused = false;
         let side_panel_open = false;
-        let editing_mode = UiEditingMode::None;
+        let editing_mode = None;
 
         Self { window, egui_glow, width, height, camera_focused, side_panel_open, editing_mode }
     }
-}
-
-#[derive(PartialEq)]
-pub enum UiEditingMode {
-    None,
-    Vertex,
-    Fragment,
 }
 
 #[derive(Resource, Default)]
