@@ -46,7 +46,7 @@ impl Camera {
     }
 
     pub fn perspective(width: u32, height: u32) -> glm::Mat4 {
-        glm::perspective(80.0_f32.to_radians(), width as f32 / height as f32, 0.1, 350.0)
+        glm::perspective(width as f32 / height as f32, 74.0_f32.to_radians(), 0.1, 350.0)
     }
 }
 
