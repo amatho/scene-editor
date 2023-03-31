@@ -20,6 +20,7 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
 
     camera.yaw += input.mouse_delta.0 as f32 * CAMERA_SENSITIVITY;
     camera.pitch -= input.mouse_delta.1 as f32 * CAMERA_SENSITIVITY;
+    camera.pitch = camera.pitch.clamp(-89.0, 89.0);
 
     camera.front = glm::normalize(&glm::vec3(
         camera.yaw.to_radians().cos() * camera.pitch.to_radians().cos(),
