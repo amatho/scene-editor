@@ -6,7 +6,7 @@ use log::debug;
 use nalgebra_glm as glm;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::components::{Mesh, Position, Rotation, Selected, StencilId, TransformBundle};
+use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};
 use crate::resources::{Camera, Input, Time, UiState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
@@ -51,15 +51,6 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
     }
 }
 
-// TODO: Remove
-pub fn rotate_objects(time: Res<Time>, mut query: Query<&mut Rotation>) {
-    for mut r in query.iter_mut() {
-        r.x += time.delta_time;
-        r.y += time.delta_time;
-        r.z += time.delta_time;
-    }
-}
-
 pub fn spawn_object(
     gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
@@ -75,10 +66,7 @@ pub fn spawn_object(
 
         debug!("spawning a cube at {:?}", position);
 
-        commands.spawn((
-            Mesh::cube(&gl, 1.0, 1.0, 1.0),
-            TransformBundle { position, ..Default::default() },
-        ));
+        commands.spawn((Mesh::cube(&gl), TransformBundle { position, ..Default::default() }));
     }
 }
 

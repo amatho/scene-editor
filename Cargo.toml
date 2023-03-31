@@ -17,4 +17,5 @@ glutin-winit = "0.3.0"
 log = {version = "0.4.17", features = ["max_level_trace", "release_max_level_info"] }
 nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 raw-window-handle = "0.5.0"
+tobj = "3.2.4"
 winit = "0.28.2"

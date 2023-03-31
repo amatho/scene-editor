@@ -101,7 +101,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
 
     let mut world = World::new();
     world.spawn((
-        Mesh::cube(&gl, 5.0, 5.0, 5.0),
+        Mesh::cube(&gl),
         TransformBundle {
             position: Position::new(5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -109,7 +109,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
     world.spawn((
-        Mesh::cube(&gl, 5.0, 5.0, 5.0),
+        Mesh::cube(&gl),
         TransformBundle {
             position: Position::new(-5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -141,7 +141,6 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     let mut schedule = Schedule::default();
     schedule.add_system(ui::run_ui);
     schedule.add_system(systems::move_camera);
-    schedule.add_system(systems::rotate_objects);
     schedule.add_system(systems::spawn_object);
 
     let mut render_schedule = Schedule::new();
