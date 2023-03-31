@@ -61,7 +61,7 @@ pub fn spawn_object(
     if (window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
         || input.get_key_press(VirtualKeyCode::E)
     {
-        let spawn_pos = camera.pos + camera.front;
+        let spawn_pos = camera.pos + camera.front * 3.0;
         let position = Position::new(spawn_pos.x, spawn_pos.y, spawn_pos.z);
 
         debug!("spawning a cube at {:?}", position);
