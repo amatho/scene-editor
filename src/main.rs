@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 
 fn main() -> Result<(), &'static str> {
     if let Err(e) = tdt4230::run() {

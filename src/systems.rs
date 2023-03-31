@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
 use glow::{Context, HasContext, PixelPackData};
-use log::debug;
 use nalgebra_glm as glm;
+use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
 use glow::Context;
-use log::{info, warn};
+use tracing::{info, warn};
 
 use crate::components::{CustomShader, Mesh, Selected};
 use crate::resources::UiState;

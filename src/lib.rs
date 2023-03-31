@@ -15,7 +15,6 @@ use std::time::Instant;
 use bevy_ecs::schedule::{ExecutorKind, IntoSystemConfigs, Schedule};
 use bevy_ecs::world::World;
 use egui_glow::EguiGlow;
-use env_logger::Env;
 use glow::HasContext as _;
 use glutin::config::ConfigTemplateBuilder;
 use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
@@ -23,9 +22,10 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin::surface::SwapInterval;
 use glutin_winit::{DisplayBuilder, GlWindow};
-use log::info;
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
+use tracing::{info, Level};
+use tracing_subscriber::FmtSubscriber;
 use winit::dpi::PhysicalSize;
 use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
@@ -36,12 +36,9 @@ use crate::components::{Mesh, Position, Rotation, TransformBundle};
 use crate::resources::{Camera, Input, RenderSettings, Time, UiState};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
-    env_logger::Builder::from_env(Env::default().default_filter_or(if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "warn"
-    }))
-    .init();
+    let subscriber = FmtSubscriber::builder().with_max_level(Level::DEBUG).finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .map_err(|_| "setting default subscriber failed")?;
 
     let event_loop = winit::event_loop::EventLoop::new();
     let window_builder = WindowBuilder::new();
