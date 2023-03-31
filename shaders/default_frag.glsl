@@ -5,6 +5,8 @@ in vec2 TexCoord;
 
 out vec4 color;
 
+uniform sampler2D tex;
+
 void main() {
-    color = vec4(Normal, 1.0);
+    color = texture(tex, TexCoord);
 }

@@ -4,8 +4,8 @@ use std::path::Path;
 
 use glow::{Context, HasContext};
 
-pub const DEFAULT_VERT: &str = include_str!("../shaders/default.vert");
-pub const DEFAULT_FRAG: &str = include_str!("../shaders/default.frag");
+pub const DEFAULT_VERT: &str = include_str!("../shaders/default_vert.glsl");
+pub const DEFAULT_FRAG: &str = include_str!("../shaders/default_frag.glsl");
 
 pub struct Shader {
     pub program: glow::Program,

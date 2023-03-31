@@ -5,7 +5,7 @@ use glow::{Context, HasContext};
 use nalgebra_glm as glm;
 
 use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, StencilId};
-use crate::resources::{Camera, DefaultShader};
+use crate::resources::{Camera, RenderSettings};
 
 type GeometryQuery<'a> = (
     Entity,
@@ -20,7 +20,7 @@ type GeometryQuery<'a> = (
 pub fn render(
     gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
-    shader_state: Res<DefaultShader>,
+    render_settings: Res<RenderSettings>,
     query: Query<GeometryQuery>,
     mut commands: Commands,
 ) {
@@ -39,6 +39,9 @@ pub fn render(
 
         gl.enable(glow::STENCIL_TEST);
         gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+
+        // TODO: Move this down to object rendering and support custom texture
+        gl.bind_texture(glow::TEXTURE_2D, Some(render_settings.default_texture));
     }
 
     let vp =
@@ -55,13 +58,14 @@ pub fn render(
         let id = i + 1;
 
         unsafe {
-            if let Some(CustomShader { shader: Ok(shader), .. }) = custom_shader {
-                shader.activate(&gl);
+            let shader = if let Some(CustomShader { shader: Ok(shader), .. }) = custom_shader {
+                shader
             } else {
-                shader_state.shader.activate(&gl);
-            }
+                &render_settings.default_shader
+            };
 
-            let mvp_location = gl.get_uniform_location(shader_state.shader.program, "mvp");
+            shader.activate(&gl);
+            let mvp_location = gl.get_uniform_location(shader.program, "mvp");
             gl.uniform_matrix_4_f32_slice(mvp_location.as_ref(), false, glm::value_ptr(&mvp));
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
@@ -73,9 +77,10 @@ pub fn render(
 
                 let mvp = mvp * glm::scaling(&glm::vec3(1.1, 1.1, 1.1));
 
-                shader_state.outline.activate(&gl);
+                render_settings.outline_shader.activate(&gl);
 
-                let mvp_location = gl.get_uniform_location(shader_state.shader.program, "mvp");
+                let mvp_location =
+                    gl.get_uniform_location(render_settings.outline_shader.program, "mvp");
                 gl.uniform_matrix_4_f32_slice(mvp_location.as_ref(), false, glm::value_ptr(&mvp));
 
                 // Disable writing to the stencil buffer

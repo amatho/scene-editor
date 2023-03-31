@@ -3,21 +3,51 @@ use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
 use egui_glow::EguiGlow;
+use glow::{Context, HasContext, Texture};
 use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
-use crate::shader::{Shader, ShaderType};
+use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Resource)]
-pub struct DefaultShader {
-    pub shader: Shader,
-    pub outline: Shader,
+pub struct RenderSettings {
+    pub default_shader: Shader,
+    pub outline_shader: Shader,
+    pub default_texture: Texture,
 }
 
-impl DefaultShader {
-    pub fn new(shader: Shader, outline: Shader) -> Self {
-        Self { shader, outline }
+impl RenderSettings {
+    pub fn new(gl: &Context) -> Result<Self, String> {
+        let default_shader = ShaderBuilder::new(gl)
+            .add_shader_source(crate::shader::DEFAULT_VERT, ShaderType::Vertex)?
+            .add_shader_source(crate::shader::DEFAULT_FRAG, ShaderType::Fragment)?
+            .link()?;
+
+        let outline_shader = ShaderBuilder::new(gl)
+            .add_shader_source(include_str!("../shaders/outline_vert.glsl"), ShaderType::Vertex)?
+            .add_shader_source(include_str!("../shaders/outline_frag.glsl"), ShaderType::Fragment)?
+            .link()?;
+
+        let default_texture = unsafe {
+            let tex = gl.create_texture()?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+            let pixels: [u8; 4] = [229, 229, 229, 255];
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                1,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&pixels),
+            );
+            tex
+        };
+
+        Ok(Self { default_shader, outline_shader, default_texture })
     }
 }
 

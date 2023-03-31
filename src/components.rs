@@ -203,8 +203,8 @@ pub struct CustomShader {
 
 impl CustomShader {
     pub fn new(gl: &Context) -> Self {
-        let vert_source = include_str!("../shaders/default.vert").to_owned();
-        let frag_source = include_str!("../shaders/default.frag").to_owned();
+        let vert_source = crate::shader::DEFAULT_VERT.to_owned();
+        let frag_source = crate::shader::DEFAULT_FRAG.to_owned();
         let shader = Ok(ShaderBuilder::new(gl)
             .add_shader_source(&vert_source, ShaderType::Vertex)
             .unwrap()

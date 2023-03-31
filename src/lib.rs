@@ -33,8 +33,7 @@ use winit::event::{
 use winit::window::{CursorGrabMode, WindowBuilder};
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, DefaultShader, Input, Time, UiState};
-use crate::shader::{ShaderBuilder, ShaderType};
+use crate::resources::{Camera, Input, RenderSettings, Time, UiState};
 
 pub fn run() -> Result<(), Cow<'static, str>> {
     env_logger::Builder::from_env(Env::default().default_filter_or(if cfg!(debug_assertions) {
@@ -118,21 +117,11 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
 
-    let shader = ShaderBuilder::new(&gl)
-        .add_shader_source(shader::DEFAULT_VERT, ShaderType::Vertex)?
-        .add_shader_source(shader::DEFAULT_FRAG, ShaderType::Fragment)?
-        .link()?;
-
-    let outline = ShaderBuilder::new(&gl)
-        .add_shader_source(include_str!("../shaders/outline.vert"), ShaderType::Vertex)?
-        .add_shader_source(include_str!("../shaders/outline.frag"), ShaderType::Fragment)?
-        .link()?;
-
     let window_size = window.inner_size();
 
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(DefaultShader::new(shader, outline));
+    world.insert_resource(RenderSettings::new(&gl)?);
     world.insert_resource(Camera::new(
         Camera::perspective(window_size.width, window_size.height),
         glm::vec3(0.0, 0.0, 3.0),
