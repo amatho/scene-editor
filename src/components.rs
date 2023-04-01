@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use color_eyre::Result;
 use glow::{Buffer, Context, VertexArray};
-use nalgebra_glm::{Vec2, Vec3};
+use nalgebra_glm as glm;
 use tobj::Model;
 
 use crate::gl_util;
@@ -63,10 +63,10 @@ pub struct Mesh {
 impl Mesh {
     pub fn new(
         gl: &Context,
-        vertices: &[Vec3],
+        vertices: &[glm::Vec3],
         indices: &[u32],
-        normals: &[Vec3],
-        texture_coords: &[Vec2],
+        normals: &[glm::Vec3],
+        texture_coords: &[glm::Vec2],
     ) -> Self {
         let (vao, buffers) =
             unsafe { gl_util::create_vao(gl, vertices, indices, normals, texture_coords) };
@@ -119,5 +119,16 @@ impl CustomShader {
             .unwrap());
 
         Self { shader, vert_source, frag_source }
+    }
+}
+
+#[derive(Component)]
+pub struct PointLight {
+    pub color: glm::Vec3,
+}
+
+impl PointLight {
+    pub fn new(color: glm::Vec3) -> Self {
+        Self { color }
     }
 }
