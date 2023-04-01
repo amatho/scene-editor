@@ -6,7 +6,6 @@ mod shader;
 mod systems;
 mod ui;
 
-use std::borrow::Cow;
 use std::ffi::CString;
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -14,13 +13,17 @@ use std::time::Instant;
 
 use bevy_ecs::schedule::{ExecutorKind, IntoSystemConfigs, Schedule};
 use bevy_ecs::world::World;
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use egui_glow::EguiGlow;
-use glow::HasContext as _;
+use glow::{Context, HasContext as _};
 use glutin::config::ConfigTemplateBuilder;
-use glutin::context::{ContextApi, ContextAttributesBuilder, GlProfile, Version};
+use glutin::context::{
+    ContextApi, ContextAttributesBuilder, GlProfile, PossiblyCurrentContext, Version,
+};
 use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
-use glutin::surface::SwapInterval;
+use glutin::surface::{Surface, SwapInterval, WindowSurface};
 use glutin_winit::{DisplayBuilder, GlWindow};
 use nalgebra_glm as glm;
 use raw_window_handle::HasRawWindowHandle;
@@ -30,60 +33,19 @@ use winit::dpi::PhysicalSize;
 use winit::event::{
     DeviceEvent, ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
 };
-use winit::window::{CursorGrabMode, WindowBuilder};
+use winit::event_loop::EventLoop;
+use winit::window::{CursorGrabMode, Window, WindowBuilder};
 
 use crate::components::{Mesh, Position, Rotation, TransformBundle};
-use crate::resources::{Camera, Input, RenderSettings, Time, UiState};
+use crate::resources::{Camera, Input, ModelLoader, RenderSettings, Time, UiState};
 
-pub fn run() -> Result<(), Cow<'static, str>> {
+pub fn run() -> Result<()> {
     let subscriber = FmtSubscriber::builder().with_max_level(Level::DEBUG).finish();
     tracing::subscriber::set_global_default(subscriber)
-        .map_err(|_| "setting default subscriber failed")?;
+        .map_err(|_| eyre!("setting default subscriber failed"))?;
 
-    let event_loop = winit::event_loop::EventLoop::new();
-    let window_builder = WindowBuilder::new();
-    let template = ConfigTemplateBuilder::new().with_stencil_size(8);
-    let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+    let (gl, gl_context, gl_surface, window, event_loop) = create_glutin_window();
 
-    let (window, gl_config) = display_builder
-        .build(&event_loop, template, |configs| {
-            configs
-                .reduce(|acc, cfg| if cfg.num_samples() > acc.num_samples() { cfg } else { acc })
-                .unwrap()
-        })
-        .unwrap();
-
-    info!("Picked a config with {} samples", gl_config.num_samples());
-    info!("Picked a config with {} stencil size", gl_config.stencil_size());
-
-    let window = window.unwrap();
-    let raw_window_handle = window.raw_window_handle();
-
-    let gl_display = gl_config.display();
-
-    let context_attributes = ContextAttributesBuilder::new()
-        .with_profile(GlProfile::Core)
-        .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 1)))) // Maximum supported version on macOS
-        .build(Some(raw_window_handle));
-    let not_current_gl_context =
-        unsafe { gl_display.create_context(&gl_config, &context_attributes).unwrap() };
-
-    let attrs = window.build_surface_attributes(Default::default());
-    let gl_surface =
-        unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
-
-    let gl_context = not_current_gl_context.make_current(&gl_surface).unwrap();
-
-    gl_surface
-        .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
-        .unwrap();
-
-    let gl = unsafe {
-        glow::Context::from_loader_function(|s| {
-            let s = CString::new(s).expect("failed to construct C string for gl proc address");
-            gl_display.get_proc_address(&s)
-        })
-    };
     let gl = Arc::new(gl);
 
     unsafe {
@@ -97,8 +59,10 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     }
 
     let mut world = World::new();
+
+    let mut model_loader = ModelLoader::new();
     world.spawn((
-        Mesh::cube(&gl),
+        Mesh::from_model(&gl, model_loader.load_model("cube")?),
         TransformBundle {
             position: Position::new(5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -106,7 +70,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
         },
     ));
     world.spawn((
-        Mesh::cube(&gl),
+        Mesh::from_model(&gl, model_loader.load_model("cube")?),
         TransformBundle {
             position: Position::new(-5.0, 0.0, -15.0),
             rotation: Rotation::new(0.0, 0.0, 0.0),
@@ -132,6 +96,7 @@ pub fn run() -> Result<(), Cow<'static, str>> {
     egui_glow.egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
     info!("set egui pixels per point to scale factor {}", window.scale_factor(),);
     world.insert_resource(UiState::new(window.clone(), egui_glow));
+    world.insert_resource(model_loader);
     world.insert_resource(Input::default());
     world.insert_resource(Time::default());
 
@@ -267,4 +232,54 @@ fn resize(
             );
         }
     }
+}
+
+fn create_glutin_window()
+-> (Context, PossiblyCurrentContext, Surface<WindowSurface>, Window, EventLoop<()>) {
+    let event_loop = winit::event_loop::EventLoop::new();
+    let window_builder = WindowBuilder::new();
+    let template = ConfigTemplateBuilder::new().with_stencil_size(8);
+    let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
+
+    let (window, gl_config) = display_builder
+        .build(&event_loop, template, |configs| {
+            configs
+                .reduce(|acc, cfg| if cfg.num_samples() > acc.num_samples() { cfg } else { acc })
+                .unwrap()
+        })
+        .unwrap();
+
+    info!("Picked a config with {} samples", gl_config.num_samples());
+    info!("Picked a config with {} stencil size", gl_config.stencil_size());
+
+    let window = window.unwrap();
+    let raw_window_handle = window.raw_window_handle();
+
+    let gl_display = gl_config.display();
+
+    let context_attributes = ContextAttributesBuilder::new()
+        .with_profile(GlProfile::Core)
+        .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 1)))) // Maximum supported version on macOS
+        .build(Some(raw_window_handle));
+    let not_current_gl_context =
+        unsafe { gl_display.create_context(&gl_config, &context_attributes).unwrap() };
+
+    let attrs = window.build_surface_attributes(Default::default());
+    let gl_surface =
+        unsafe { gl_config.display().create_window_surface(&gl_config, &attrs).unwrap() };
+
+    let gl_context = not_current_gl_context.make_current(&gl_surface).unwrap();
+
+    gl_surface
+        .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
+        .unwrap();
+
+    let gl = unsafe {
+        glow::Context::from_loader_function(|s| {
+            let s = CString::new(s).expect("failed to construct C string for gl proc address");
+            gl_display.get_proc_address(&s)
+        })
+    };
+
+    (gl, gl_context, gl_surface, window, event_loop)
 }

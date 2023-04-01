@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bevy_ecs = "0.10.0"
 bytemuck = "1.13.1"
+color-eyre = "0.6.2"
 egui = "0.21.0"
 egui_glow = { version = "0.21.0", features = ["winit"] }
 glow = "0.12.1"

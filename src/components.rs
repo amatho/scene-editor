@@ -1,6 +1,8 @@
 use bevy_ecs::prelude::*;
+use color_eyre::Result;
 use glow::{Buffer, Context, VertexArray};
 use nalgebra_glm::{Vec2, Vec3};
+use tobj::Model;
 
 use crate::gl_util;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
@@ -73,16 +75,13 @@ impl Mesh {
         Self { vao, num_indices, buffers }
     }
 
-    pub fn cube(gl: &Context) -> Self {
-        let (models, _materials) = tobj::load_obj("obj/cube.obj", &tobj::GPU_LOAD_OPTIONS).unwrap();
-        let cube_model = models.get(0).unwrap();
-
+    pub fn from_model(gl: &Context, model: &Model) -> Self {
         Mesh::new(
             gl,
-            bytemuck::cast_slice(&cube_model.mesh.positions),
-            &cube_model.mesh.indices,
-            bytemuck::cast_slice(&cube_model.mesh.normals),
-            bytemuck::cast_slice(&cube_model.mesh.texcoords),
+            bytemuck::cast_slice(&model.mesh.positions),
+            &model.mesh.indices,
+            bytemuck::cast_slice(&model.mesh.normals),
+            bytemuck::cast_slice(&model.mesh.texcoords),
         )
     }
 
@@ -102,7 +101,7 @@ pub struct Selected;
 
 #[derive(Component)]
 pub struct CustomShader {
-    pub shader: Result<Shader, String>,
+    pub shader: Result<Shader>,
     pub vert_source: String,
     pub frag_source: String,
 }

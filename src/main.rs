@@ -1,10 +1,9 @@
-use tracing::error;
+use color_eyre::eyre::Result;
 
-fn main() -> Result<(), &'static str> {
-    if let Err(e) = tdt4230::run() {
-        error!("{e}");
-        return Err("failed to run program");
-    }
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
+    tdt4230::run()?;
 
     Ok(())
 }

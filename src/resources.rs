@@ -1,10 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 
 use bevy_ecs::system::Resource;
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use egui_glow::EguiGlow;
 use glow::{Context, HasContext, Texture};
 use nalgebra_glm as glm;
+use tobj::Model;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
@@ -18,7 +22,7 @@ pub struct RenderSettings {
 }
 
 impl RenderSettings {
-    pub fn new(gl: &Context) -> Result<Self, String> {
+    pub fn new(gl: &Context) -> Result<Self> {
         let default_shader = ShaderBuilder::new(gl)
             .add_shader_source(crate::shader::DEFAULT_VERT, ShaderType::Vertex)?
             .add_shader_source(crate::shader::DEFAULT_FRAG, ShaderType::Fragment)?
@@ -30,7 +34,7 @@ impl RenderSettings {
             .link()?;
 
         let default_texture = unsafe {
-            let tex = gl.create_texture()?;
+            let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
             gl.bind_texture(glow::TEXTURE_2D, Some(tex));
             let pixels: [u8; 4] = [229, 229, 229, 255];
             gl.tex_image_2d(
@@ -99,6 +103,33 @@ impl UiState {
         let editing_mode = None;
 
         Self { window, egui_glow, width, height, camera_focused, side_panel_open, editing_mode }
+    }
+}
+
+#[derive(Resource)]
+pub struct ModelLoader {
+    models: HashMap<String, Model>,
+}
+
+impl ModelLoader {
+    pub fn new() -> Self {
+        Self { models: HashMap::new() }
+    }
+
+    pub fn load_model(&mut self, name: &str) -> Result<&Model> {
+        if !self.models.contains_key(name) {
+            let mut path = Path::new("obj").join(name);
+            path.set_extension("obj");
+            let model = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?
+                .0
+                .into_iter()
+                .next()
+                .ok_or(eyre!("obj file had no models"))?;
+
+            self.models.insert(name.to_owned(), model);
+        }
+
+        Ok(self.models.get(name).unwrap())
     }
 }
 

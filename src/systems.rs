@@ -7,7 +7,7 @@ use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};
-use crate::resources::{Camera, Input, Time, UiState};
+use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -56,6 +56,7 @@ pub fn spawn_object(
     camera: Res<Camera>,
     mut input: ResMut<Input>,
     window_state: Res<UiState>,
+    mut model_loader: ResMut<ModelLoader>,
     mut commands: Commands,
 ) {
     if (window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
@@ -66,7 +67,10 @@ pub fn spawn_object(
 
         debug!("spawning a cube at {:?}", position);
 
-        commands.spawn((Mesh::cube(&gl), TransformBundle { position, ..Default::default() }));
+        commands.spawn((
+            Mesh::from_model(&gl, model_loader.load_model("cube").unwrap()),
+            TransformBundle { position, ..Default::default() },
+        ));
     }
 }
 

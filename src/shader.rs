@@ -2,6 +2,8 @@ use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use glow::{Context, HasContext};
 
 pub const DEFAULT_VERT: &str = include_str!("../shaders/default_vert.glsl");
@@ -42,35 +44,30 @@ impl<'a> ShaderBuilder<'a> {
         Self { gl, shaders: Vec::new() }
     }
 
-    pub fn add_shader_file<P: AsRef<Path>>(
-        self,
-        path: P,
-        shader_type: ShaderType,
-    ) -> Result<Self, String> {
-        let shader_bytes = fs::read(&path).map_err(|e| format!("could not add shader: {e}"))?;
+    pub fn add_shader_file<P: AsRef<Path>>(self, path: P, shader_type: ShaderType) -> Result<Self> {
+        let shader_bytes = fs::read(&path).map_err(|e| eyre!("could not add shader: {e}"))?;
         let shader_source = String::from_utf8_lossy(&shader_bytes);
 
         self.add_shader_source(&shader_source, shader_type)
-            .map_err(|e| format!("{}: {e}", path.as_ref().display()))
+            .map_err(|e| eyre!("{}: {e}", path.as_ref().display()))
     }
 
-    pub fn add_shader_source(
-        mut self,
-        source: &str,
-        shader_type: ShaderType,
-    ) -> Result<Self, String> {
+    pub fn add_shader_source(mut self, source: &str, shader_type: ShaderType) -> Result<Self> {
         let shader_enum = match shader_type {
             ShaderType::Vertex => glow::VERTEX_SHADER,
             ShaderType::Fragment => glow::FRAGMENT_SHADER,
         };
 
         let shader = unsafe {
-            let shader = self.gl.create_shader(shader_enum)?;
+            let shader = self
+                .gl
+                .create_shader(shader_enum)
+                .map_err(|e| eyre!("could not create shader: {e}"))?;
             self.gl.shader_source(shader, source);
             self.gl.compile_shader(shader);
 
             if !self.gl.get_shader_compile_status(shader) {
-                return Err(format!(
+                return Err(eyre!(
                     "{shader_type} shader compilation failed:\n{}",
                     self.gl.get_shader_info_log(shader)
                 ));
@@ -82,8 +79,10 @@ impl<'a> ShaderBuilder<'a> {
         Ok(self)
     }
 
-    pub fn link(self) -> Result<Shader, String> {
-        let program = unsafe { self.gl.create_program()? };
+    pub fn link(self) -> Result<Shader> {
+        let program = unsafe {
+            self.gl.create_program().map_err(|e| eyre!("could not create shader program: {e}"))?
+        };
 
         for &shader in &self.shaders {
             unsafe {
@@ -95,7 +94,7 @@ impl<'a> ShaderBuilder<'a> {
             self.gl.link_program(program);
 
             if !self.gl.get_program_link_status(program) {
-                return Err(format!(
+                return Err(eyre!(
                     "shader program linking failed:\n{}",
                     self.gl.get_program_info_log(program)
                 ));
