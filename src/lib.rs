@@ -62,20 +62,16 @@ pub fn run() -> Result<()> {
 
     let mut model_loader = ModelLoader::new();
     world.spawn((
-        Mesh::from_model(&gl, model_loader.load_model("cube")?),
-        TransformBundle {
-            position: Position::new(5.0, 0.0, -15.0),
-            rotation: Rotation::new(0.0, 0.0, 0.0),
-            ..Default::default()
-        },
+        Mesh::from_model(&gl, model_loader.load_model("plane")?),
+        TransformBundle { position: Position::new(0.0, -2.0, -15.0), ..Default::default() },
     ));
     world.spawn((
         Mesh::from_model(&gl, model_loader.load_model("cube")?),
-        TransformBundle {
-            position: Position::new(-5.0, 0.0, -15.0),
-            rotation: Rotation::new(0.0, 0.0, 0.0),
-            ..Default::default()
-        },
+        TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
+    ));
+    world.spawn((
+        Mesh::from_model(&gl, model_loader.load_model("cube")?),
+        TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
 
     let window_size = window.inner_size();
@@ -85,7 +81,7 @@ pub fn run() -> Result<()> {
     world.insert_resource(RenderSettings::new(&gl)?);
     world.insert_resource(Camera::new(
         Camera::perspective(window_size.width, window_size.height),
-        glm::vec3(0.0, 0.0, 3.0),
+        glm::vec3(0.0, 0.0, 0.0),
         glm::vec3(0.0, 0.0, -1.0),
         glm::vec3(0.0, 1.0, 0.0),
         -90.0,
