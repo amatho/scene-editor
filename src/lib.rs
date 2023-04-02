@@ -36,7 +36,7 @@ use winit::event::{
 use winit::event_loop::EventLoop;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 
-use crate::components::{Mesh, PointLight, Position, TransformBundle};
+use crate::components::{Mesh, PointLight, Position, Scale, TransformBundle};
 use crate::resources::{Camera, Input, ModelLoader, RenderSettings, Time, UiState};
 
 pub fn run() -> Result<()> {
@@ -63,7 +63,11 @@ pub fn run() -> Result<()> {
     let mut model_loader = ModelLoader::new();
     world.spawn((
         Mesh::from_model(&gl, model_loader.load_model("plane")?),
-        TransformBundle { position: Position::new(0.0, -2.0, -15.0), ..Default::default() },
+        TransformBundle {
+            position: Position::new(0.0, -2.0, -15.0),
+            scale: Scale::new(10.0, 1.0, 10.0),
+            ..Default::default()
+        },
     ));
     world.spawn((
         Mesh::from_model(&gl, model_loader.load_model("cube")?),

@@ -1,7 +1,7 @@
 use std::mem;
 
 use bytemuck::Pod;
-use glow::{Buffer, Context, HasContext, VertexArray};
+use glow::{Buffer, Context, HasContext, Program, VertexArray};
 use nalgebra_glm as glm;
 
 unsafe fn buffer_with_data<T: Pod>(gl: &Context, target: u32, data: &[T]) -> Buffer {
@@ -60,4 +60,14 @@ pub unsafe fn delete_vao(gl: &Context, vao: VertexArray, buffers: &[Buffer]) {
         gl.delete_buffer(*buf);
     }
     gl.delete_vertex_array(vao);
+}
+
+pub unsafe fn uniform_vec3(gl: &Context, program: Program, name: &str, value: &glm::Vec3) {
+    let loc = gl.get_uniform_location(program, name);
+    gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));
+}
+
+pub unsafe fn uniform_mat4(gl: &Context, program: Program, name: &str, value: &glm::Mat4) {
+    let loc = gl.get_uniform_location(program, name);
+    gl.uniform_matrix_4_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
 }

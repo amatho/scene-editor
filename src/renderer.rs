@@ -7,6 +7,7 @@ use nalgebra_glm as glm;
 use crate::components::{
     CustomShader, Mesh, PointLight, Position, Rotation, Scale, Selected, StencilId,
 };
+use crate::gl_util;
 use crate::resources::{Camera, RenderSettings};
 
 type GeometryQuery<'a> = (
@@ -69,21 +70,18 @@ pub fn render(
             };
 
             shader.activate(&gl);
-            let mvp_loc = gl.get_uniform_location(shader.program, "mvp");
-            gl.uniform_matrix_4_f32_slice(mvp_loc.as_ref(), false, glm::value_ptr(&mvp));
-            let model_loc = gl.get_uniform_location(shader.program, "model");
-            gl.uniform_matrix_4_f32_slice(model_loc.as_ref(), false, glm::value_ptr(&model));
+            gl_util::uniform_mat4(&gl, shader.program, "mvp", &mvp);
+            gl_util::uniform_mat4(&gl, shader.program, "model", &model);
 
             let (light, light_pos) = lights.single();
-            let light_pos_loc = gl.get_uniform_location(shader.program, "lightPos");
-            gl.uniform_3_f32_slice(
-                light_pos_loc.as_ref(),
-                glm::value_ptr(&glm::vec3(light_pos.x, light_pos.y, light_pos.z)),
+            gl_util::uniform_vec3(
+                &gl,
+                shader.program,
+                "lightPos",
+                &glm::vec3(light_pos.x, light_pos.y, light_pos.z),
             );
-            let light_color_loc = gl.get_uniform_location(shader.program, "lightColor");
-            gl.uniform_3_f32_slice(light_color_loc.as_ref(), glm::value_ptr(&light.color));
-            let view_pos_loc = gl.get_uniform_location(shader.program, "viewPos");
-            gl.uniform_3_f32_slice(view_pos_loc.as_ref(), glm::value_ptr(&camera.pos));
+            gl_util::uniform_vec3(&gl, shader.program, "lightColor", &light.color);
+            gl_util::uniform_vec3(&gl, shader.program, "viewPos", &camera.pos);
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
             gl.bind_vertex_array(Some(mesh.vao));
@@ -96,9 +94,7 @@ pub fn render(
 
                 render_settings.outline_shader.activate(&gl);
 
-                let mvp_location =
-                    gl.get_uniform_location(render_settings.outline_shader.program, "mvp");
-                gl.uniform_matrix_4_f32_slice(mvp_location.as_ref(), false, glm::value_ptr(&mvp));
+                gl_util::uniform_mat4(&gl, render_settings.outline_shader.program, "mvp", &mvp);
 
                 // Disable writing to the stencil buffer
                 gl.stencil_mask(0x00);
