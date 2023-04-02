@@ -13,19 +13,21 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
     let front = camera.front;
     let up = camera.up;
     const CAMERA_SPEED: f32 = 25.0;
-    const CAMERA_SENSITIVITY: f32 = 0.3;
+    const CAMERA_SENSITIVITY: f64 = 0.3;
 
     let speed_modifier =
         if input.get_key_press_continuous(VirtualKeyCode::LShift) { 3.0 } else { 1.0 };
 
-    camera.yaw += input.mouse_delta.0 as f32 * CAMERA_SENSITIVITY;
-    camera.pitch -= input.mouse_delta.1 as f32 * CAMERA_SENSITIVITY;
+    camera.yaw += input.mouse_delta.0 * CAMERA_SENSITIVITY;
+    camera.pitch -= input.mouse_delta.1 * CAMERA_SENSITIVITY;
     camera.pitch = camera.pitch.clamp(-89.0, 89.0);
 
+    let yaw_radians = camera.yaw.to_radians();
+    let pitch_radians = camera.pitch.to_radians();
     camera.front = glm::normalize(&glm::vec3(
-        camera.yaw.to_radians().cos() * camera.pitch.to_radians().cos(),
-        camera.pitch.to_radians().sin(),
-        camera.yaw.to_radians().sin() * camera.pitch.to_radians().cos(),
+        (yaw_radians.cos() * pitch_radians.cos()) as f32,
+        pitch_radians.sin() as f32,
+        (yaw_radians.sin() * pitch_radians.cos()) as f32,
     ));
 
     input.mouse_delta = (0.0, 0.0);

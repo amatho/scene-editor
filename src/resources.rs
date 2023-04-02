@@ -63,8 +63,8 @@ pub struct Camera {
     pub front: glm::Vec3,
     pub up: glm::Vec3,
 
-    pub yaw: f32,
-    pub pitch: f32,
+    pub yaw: f64,
+    pub pitch: f64,
 }
 
 impl Camera {
@@ -73,8 +73,8 @@ impl Camera {
         pos: glm::Vec3,
         front: glm::Vec3,
         up: glm::Vec3,
-        yaw: f32,
-        pitch: f32,
+        yaw: f64,
+        pitch: f64,
     ) -> Self {
         Self { projection, pos, front, up, yaw, pitch }
     }
