@@ -184,9 +184,6 @@ pub fn run() -> Result<()> {
                 }
             }
             Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            Event::RedrawEventsCleared => {
                 schedule.run(&mut world);
                 render_schedule.run(&mut world);
 
