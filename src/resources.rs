@@ -86,8 +86,6 @@ impl Camera {
 
 #[derive(Resource)]
 pub struct UiState {
-    pub window: Arc<Window>,
-    pub egui_glow: EguiGlow,
     pub width: u32,
     pub height: u32,
     pub camera_focused: bool,
@@ -96,13 +94,63 @@ pub struct UiState {
 }
 
 impl UiState {
-    pub fn new(window: Arc<Window>, egui_glow: EguiGlow) -> Self {
+    pub fn new(window: &Window) -> Self {
         let (width, height) = window.inner_size().into();
         let camera_focused = false;
         let side_panel_open = false;
         let editing_mode = None;
 
-        Self { window, egui_glow, width, height, camera_focused, side_panel_open, editing_mode }
+        Self { width, height, camera_focused, side_panel_open, editing_mode }
+    }
+}
+
+#[derive(Resource)]
+pub struct EguiGlowRes {
+    egui_glow: EguiGlow,
+}
+
+impl EguiGlowRes {
+    pub fn new(egui_glow: EguiGlow) -> Self {
+        Self { egui_glow }
+    }
+}
+
+impl std::ops::DerefMut for EguiGlowRes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.egui_glow
+    }
+}
+
+impl std::ops::Deref for EguiGlowRes {
+    type Target = EguiGlow;
+
+    fn deref(&self) -> &Self::Target {
+        &self.egui_glow
+    }
+}
+
+#[derive(Resource)]
+pub struct WinitWindow {
+    window: Arc<Window>,
+}
+
+impl WinitWindow {
+    pub fn new(window: Arc<Window>) -> Self {
+        Self { window }
+    }
+}
+
+impl std::ops::DerefMut for WinitWindow {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.window
+    }
+}
+
+impl std::ops::Deref for WinitWindow {
+    type Target = Arc<Window>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.window
     }
 }
 

@@ -1,24 +1,22 @@
-use std::sync::Arc;
-
 use bevy_ecs::prelude::*;
-use glow::Context;
-use tracing::{info, warn};
 
-use crate::components::{CustomShader, Mesh, Selected};
-use crate::resources::UiState;
-use crate::shader::{ShaderBuilder, ShaderType};
+use crate::commands::{AddCustomShader, CompileCustomShader, DespawnMesh};
+use crate::components::{CustomShader, Selected};
+use crate::resources::{EguiGlowRes, UiState, WinitWindow};
+use crate::shader::ShaderType;
 
 pub fn run_ui(
-    gl: NonSend<Arc<Context>>,
+    mut egui_glow: ResMut<EguiGlowRes>,
+    window: Res<WinitWindow>,
     mut state: ResMut<UiState>,
-    mut selected_entities: Query<(Entity, &Selected, &Mesh, Option<&mut CustomShader>)>,
-    all_entities: Query<(Entity, Option<&Mesh>)>,
+    mut selected_entities: Query<(Entity, &Selected, Option<&mut CustomShader>)>,
+    all_entities: Query<Entity>,
     mut commands: Commands,
 ) {
     // Need to reborrow for borrow checker to understand that we borrow different fields
     let state = &mut *state;
 
-    state.egui_glow.run(&state.window, |ctx| {
+    egui_glow.run(&window, |ctx| {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.toggle_value(&mut state.side_panel_open, "🔧 Utilities");
@@ -28,20 +26,15 @@ pub fn run_ui(
         egui::SidePanel::left("side_panel").show_animated(ctx, state.side_panel_open, |ui| {
             ui.heading("🔧 Utilities");
             if ui.button("Despawn all").clicked() {
-                for (entity, mesh) in &all_entities {
-                    if let Some(mesh) = mesh {
-                        unsafe {
-                            mesh.destroy(&gl);
-                        }
-                    }
-                    commands.entity(entity).despawn();
+                for entity in &all_entities {
+                    commands.add(DespawnMesh(entity));
                 }
             }
         });
 
         let selected = selected_entities.get_single_mut();
 
-        if let Ok((entity, _, mesh, custom_shader)) = selected {
+        if let Ok((entity, _, custom_shader)) = selected {
             match state.editing_mode {
                 None => {
                     egui::Window::new("Entity Inspector").show(ctx, |ui| {
@@ -56,10 +49,7 @@ pub fn run_ui(
                         }
 
                         if ui.button("Despawn").clicked() {
-                            unsafe {
-                                mesh.destroy(&gl);
-                            }
-                            commands.entity(entity).despawn();
+                            commands.add(DespawnMesh(entity));
                         }
                     });
                 }
@@ -86,22 +76,11 @@ pub fn run_ui(
                             if response.clicked() {
                                 state.editing_mode = None;
 
-                                cs.shader = ShaderBuilder::new(&gl)
-                                    .add_shader_source(&cs.vert_source, ShaderType::Vertex)
-                                    .and_then(|b| {
-                                        b.add_shader_source(&cs.frag_source, ShaderType::Fragment)
-                                            .and_then(|b| b.link())
-                                    });
-
-                                if let Err(e) = &cs.shader {
-                                    warn!("custom shader error: {}", e);
-                                } else {
-                                    info!("custom shader compilation successful");
-                                }
+                                commands.add(CompileCustomShader(entity));
                             }
                         }
                         None => {
-                            commands.entity(entity).insert(CustomShader::new(&gl));
+                            commands.add(AddCustomShader(entity));
                         }
                     });
                 }
@@ -112,9 +91,6 @@ pub fn run_ui(
     });
 }
 
-pub fn paint_ui(mut state: ResMut<UiState>) {
-    // Need to reborrow for borrow checker to understand that we borrow different fields
-    let state = &mut *state;
-
-    state.egui_glow.paint(&state.window);
+pub fn paint_ui(mut egui_glow: ResMut<EguiGlowRes>, window: Res<WinitWindow>) {
+    egui_glow.paint(&window);
 }
