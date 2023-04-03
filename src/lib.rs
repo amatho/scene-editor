@@ -8,6 +8,7 @@ mod shader;
 mod systems;
 mod ui;
 
+use std::cell::Cell;
 use std::ffi::CString;
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -65,7 +66,7 @@ pub fn run() -> Result<()> {
     let not_current_gl_context = gl_context.make_not_current()?;
     let (event_sender, event_receiver) = mpsc::channel();
 
-    thread::spawn(move || {
+    let game_loop_thread = thread::spawn(move || {
         game_logic::run_game_loop(
             gl,
             window,
@@ -75,6 +76,7 @@ pub fn run() -> Result<()> {
             event_receiver,
         )
     });
+    let game_loop_thread = Cell::new(Some(game_loop_thread));
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_wait();
@@ -112,6 +114,9 @@ pub fn run() -> Result<()> {
             }
             Event::LoopDestroyed => {
                 event_sender.send(WinitEvent::LoopDestroyed).unwrap();
+                if let Some(thread) = game_loop_thread.take() {
+                    thread.join().unwrap().unwrap();
+                }
             }
             _ => (),
         }
