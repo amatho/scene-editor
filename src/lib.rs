@@ -112,7 +112,6 @@ pub fn run() -> Result<()> {
             }
             Event::LoopDestroyed => {
                 event_sender.send(WinitEvent::LoopDestroyed).unwrap();
-                while !game_logic_thread.is_finished() {}
             }
             _ => (),
         }
