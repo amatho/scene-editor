@@ -27,12 +27,6 @@ pub struct Rotation {
     pub z: f32,
 }
 
-impl Rotation {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
-    }
-}
-
 #[derive(Component, Debug)]
 pub struct Scale {
     pub x: f32,

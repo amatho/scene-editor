@@ -44,6 +44,7 @@ impl<'a> ShaderBuilder<'a> {
         Self { gl, shaders: Vec::new() }
     }
 
+    #[allow(dead_code)]
     pub fn add_shader_file<P: AsRef<Path>>(self, path: P, shader_type: ShaderType) -> Result<Self> {
         let shader_bytes = fs::read(&path).map_err(|e| eyre!("could not add shader: {e}"))?;
         let shader_source = String::from_utf8_lossy(&shader_bytes);

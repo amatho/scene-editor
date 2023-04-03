@@ -233,6 +233,7 @@ impl Input {
         self.mouse_buttons.remove(&button)
     }
 
+    #[allow(dead_code)]
     pub fn get_mouse_button_press_continuous(&self, button: MouseButton) -> bool {
         self.mouse_buttons.contains(&button)
     }
