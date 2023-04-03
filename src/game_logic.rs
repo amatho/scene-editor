@@ -1,8 +1,7 @@
 use std::num::NonZeroU32;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::ExecutorKind;

@@ -65,7 +65,7 @@ pub fn run() -> Result<()> {
     let not_current_gl_context = gl_context.make_not_current()?;
     let (event_sender, event_receiver) = mpsc::channel();
 
-    let game_logic_thread = thread::spawn(move || {
+    thread::spawn(move || {
         game_logic::run_game_loop(
             gl,
             window,
