@@ -120,7 +120,7 @@ pub fn run() -> Result<()> {
 
 fn create_glutin_window() -> (Context, PossiblyCurrentContext, Config, Window, EventLoop<()>) {
     let event_loop = winit::event_loop::EventLoop::new();
-    let window_builder = WindowBuilder::new();
+    let window_builder = WindowBuilder::new().with_title("Scene Editor");
     let template = ConfigTemplateBuilder::new().with_stencil_size(8);
     let display_builder = DisplayBuilder::new().with_window_builder(Some(window_builder));
 

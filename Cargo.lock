@@ -1355,6 +1355,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "scene-editor"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bytemuck",
+ "color-eyre",
+ "egui",
+ "egui_glow",
+ "glow",
+ "glutin",
+ "glutin-winit",
+ "nalgebra-glm",
+ "raw-window-handle",
+ "tobj",
+ "tracing",
+ "tracing-subscriber",
+ "winit",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1490,26 +1510,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tdt4230"
-version = "0.1.0"
-dependencies = [
- "bevy_ecs",
- "bytemuck",
- "color-eyre",
- "egui",
- "egui_glow",
- "glow",
- "glutin",
- "glutin-winit",
- "nalgebra-glm",
- "raw-window-handle",
- "tobj",
- "tracing",
- "tracing-subscriber",
- "winit",
 ]
 
 [[package]]
