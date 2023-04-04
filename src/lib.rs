@@ -87,6 +87,9 @@ pub fn run() -> Result<()> {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 control_flow.set_exit();
             }
+            Event::WindowEvent { event: WindowEvent::Destroyed, .. } => {
+                control_flow.set_exit();
+            }
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
