@@ -48,6 +48,8 @@ pub fn run() -> Result<()> {
 
     let gl = Arc::new(gl);
     let window = Arc::new(window);
+    // On macOS, needed to avoid program hanging after game loop thread stops
+    let _wc = window.clone();
 
     unsafe {
         info!("Vendor: {}", gl.get_parameter_string(glow::VENDOR));
