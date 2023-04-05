@@ -6,10 +6,14 @@ use nalgebra_glm as glm;
 use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};
+use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle, UnloadedMesh};
 use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
+    if !input.is_changed() {
+        return;
+    }
+
     let front = camera.front;
     let up = camera.up;
     const CAMERA_SPEED: f32 = 25.0;
@@ -54,14 +58,13 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
 }
 
 pub fn spawn_object(
-    gl: NonSend<Arc<Context>>,
     camera: Res<Camera>,
     mut input: ResMut<Input>,
-    window_state: Res<UiState>,
+    ui_state: Res<UiState>,
     mut model_loader: ResMut<ModelLoader>,
     mut commands: Commands,
 ) {
-    if (window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
+    if (ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
         || input.get_key_press(VirtualKeyCode::E)
     {
         let spawn_pos = camera.pos + camera.front * 3.0;
@@ -70,7 +73,7 @@ pub fn spawn_object(
         debug!("spawning a cube at {:?}", position);
 
         commands.spawn((
-            Mesh::from_model(&gl, model_loader.load_model("cube").unwrap()),
+            UnloadedMesh::from(model_loader.load_model("cube").unwrap()),
             TransformBundle { position, ..Default::default() },
         ));
     }
@@ -78,13 +81,13 @@ pub fn spawn_object(
 
 pub fn select_object(
     gl: NonSend<Arc<Context>>,
-    window_state: Res<UiState>,
+    ui_state: Res<UiState>,
     mut input: ResMut<Input>,
     already_selected: Query<(Entity, &Selected)>,
     query: Query<(Entity, &StencilId)>,
     mut commands: Commands,
 ) {
-    if !window_state.camera_focused && input.get_mouse_button_press(MouseButton::Left) {
+    if !ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left) {
         for (entity, _) in &already_selected {
             commands.entity(entity).remove::<Selected>();
         }
@@ -94,7 +97,7 @@ pub fn select_object(
             let mut bytes = [0; 4];
             gl.read_pixels(
                 x as i32,
-                window_state.height as i32 - y as i32 - 1,
+                ui_state.height as i32 - y as i32 - 1,
                 1,
                 1,
                 glow::STENCIL_INDEX,
@@ -117,5 +120,16 @@ pub fn select_object(
         if !found {
             debug!("found no object to select");
         }
+    }
+}
+
+pub fn load_object_meshes(
+    gl: NonSend<Arc<Context>>,
+    query: Query<(Entity, &UnloadedMesh), Added<UnloadedMesh>>,
+    mut commands: Commands,
+) {
+    for (entity, unloaded_mesh) in &query {
+        let mesh = Mesh::new(&gl, unloaded_mesh);
+        commands.entity(entity).remove::<UnloadedMesh>().insert(mesh);
     }
 }

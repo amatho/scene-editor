@@ -54,35 +54,61 @@ pub struct TransformBundle {
 }
 
 #[derive(Component)]
-pub struct Mesh {
-    pub vao: VertexArray,
-    pub num_indices: usize,
-    buffers: [Buffer; 4],
+pub struct UnloadedMesh {
+    vertices: Box<[glm::Vec3]>,
+    indices: Box<[u32]>,
+    normals: Box<[glm::Vec3]>,
+    texture_coords: Box<[glm::Vec2]>,
 }
 
-impl Mesh {
+impl UnloadedMesh {
     pub fn new(
-        gl: &Context,
         vertices: &[glm::Vec3],
         indices: &[u32],
         normals: &[glm::Vec3],
         texture_coords: &[glm::Vec2],
     ) -> Self {
-        let (vao, buffers) =
-            unsafe { gl_util::create_vao(gl, vertices, indices, normals, texture_coords) };
-        let num_indices = indices.len();
-
-        Self { vao, num_indices, buffers }
+        let vertices = vertices.into();
+        let indices = indices.into();
+        let normals = normals.into();
+        let texture_coords = texture_coords.into();
+        Self { vertices, indices, normals, texture_coords }
     }
+}
 
-    pub fn from_model(gl: &Context, model: &Model) -> Self {
-        Mesh::new(
-            gl,
-            bytemuck::cast_slice(&model.mesh.positions),
-            &model.mesh.indices,
-            bytemuck::cast_slice(&model.mesh.normals),
-            bytemuck::cast_slice(&model.mesh.texcoords),
-        )
+impl From<&Model> for UnloadedMesh {
+    /// Create a new `UnloadedMesh` from the given `Model`.
+    fn from(model: &Model) -> Self {
+        let vertices = bytemuck::cast_slice(&model.mesh.positions);
+        let indices = model.mesh.indices.as_slice();
+        let normals = bytemuck::cast_slice(&model.mesh.normals);
+        let texture_coords = bytemuck::cast_slice(&model.mesh.texcoords);
+
+        UnloadedMesh::new(vertices, indices, normals, texture_coords)
+    }
+}
+
+#[derive(Component)]
+pub struct Mesh {
+    pub vao: VertexArray,
+    pub num_indices: usize,
+    pub buffers: Vec<Buffer>,
+}
+
+impl Mesh {
+    pub fn new(gl: &Context, unloaded_mesh: &UnloadedMesh) -> Self {
+        let (vao, buffers) = unsafe {
+            gl_util::create_vao(
+                gl,
+                &unloaded_mesh.vertices,
+                &unloaded_mesh.indices,
+                &unloaded_mesh.normals,
+                &unloaded_mesh.texture_coords,
+            )
+        };
+        let num_indices = unloaded_mesh.indices.len();
+        let buffers = buffers.to_vec();
+        Self { vao, num_indices, buffers }
     }
 
     /// # Safety

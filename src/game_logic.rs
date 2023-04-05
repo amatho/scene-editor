@@ -20,7 +20,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyboardInput, MouseButton, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
-use crate::components::{Mesh, PointLight, Position, Scale, TransformBundle};
+use crate::components::{PointLight, Position, Scale, TransformBundle, UnloadedMesh};
 use crate::resources::{
     Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, Time, UiState, WinitWindow,
 };
@@ -45,7 +45,7 @@ pub fn run_game_loop(
 
     let mut model_loader = ModelLoader::new();
     world.spawn((
-        Mesh::from_model(&gl, model_loader.load_model("plane")?),
+        UnloadedMesh::from(model_loader.load_model("plane")?),
         TransformBundle {
             position: Position::new(0.0, -2.0, -15.0),
             scale: Scale::new(10.0, 1.0, 10.0),
@@ -53,11 +53,11 @@ pub fn run_game_loop(
         },
     ));
     world.spawn((
-        Mesh::from_model(&gl, model_loader.load_model("cube")?),
+        UnloadedMesh::from(model_loader.load_model("cube")?),
         TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
-        Mesh::from_model(&gl, model_loader.load_model("cube")?),
+        UnloadedMesh::from(model_loader.load_model("cube")?),
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((PointLight::new(glm::vec3(1.0, 1.0, 1.0)), Position::new(0.0, 5.0, -15.0)));
@@ -86,10 +86,12 @@ pub fn run_game_loop(
     schedule.add_system(ui::run_ui);
     schedule.add_system(systems::move_camera);
     schedule.add_system(systems::spawn_object);
+    schedule.add_system(systems::select_object);
+    schedule.add_system(systems::load_object_meshes);
 
     let mut render_schedule = Schedule::new();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-    render_schedule.add_systems((renderer::render, systems::select_object, ui::paint_ui).chain());
+    render_schedule.add_systems((renderer::render, ui::paint_ui).chain());
 
     let mut previous_frame_time = Instant::now();
 
