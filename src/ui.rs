@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use tracing::warn;
 
 use crate::commands::{AddCustomShader, CompileCustomShader, DespawnMesh};
-use crate::components::{CustomShader, Position, Rotation, Scale, Selected, UnloadedMesh};
+use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, UnloadedMesh};
 use crate::resources::{EguiGlowRes, ModelId, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
@@ -21,7 +21,7 @@ pub fn run_ui(
     mut state: ResMut<UiState>,
     mut model_loader: ResMut<ModelLoader>,
     mut selected_entities: Query<SelectedQuery>,
-    all_entities: Query<Entity>,
+    all_mesh_entities: Query<(Entity, &Mesh)>,
     mut commands: Commands,
 ) {
     // Need to reborrow for borrow checker to understand that we borrow different fields
@@ -44,7 +44,7 @@ pub fn run_ui(
                     |ui| {
                         ui.heading("🔧 Utilities");
                         if ui.button("Despawn all").clicked() {
-                            for entity in &all_entities {
+                            for (entity, _) in &all_mesh_entities {
                                 commands.add(DespawnMesh(entity));
                             }
                         }
