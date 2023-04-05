@@ -40,7 +40,9 @@ pub enum WinitEvent {
 }
 
 pub fn run() -> Result<()> {
-    let subscriber = FmtSubscriber::builder().with_max_level(Level::DEBUG).finish();
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(if cfg!(debug_assertions) { Level::DEBUG } else { Level::WARN })
+        .finish();
     tracing::subscriber::set_global_default(subscriber)
         .map_err(|_| eyre!("setting default subscriber failed"))?;
 

@@ -1,23 +1,26 @@
 use bevy_ecs::prelude::*;
-use tracing::debug;
+use tracing::warn;
 
 use crate::commands::{AddCustomShader, CompileCustomShader, DespawnMesh};
-use crate::components::{CustomShader, Position, Rotation, Scale, Selected};
-use crate::resources::{EguiGlowRes, UiState, WinitWindow};
+use crate::components::{CustomShader, Position, Rotation, Scale, Selected, UnloadedMesh};
+use crate::resources::{EguiGlowRes, ModelId, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
+
+type SelectedQuery<'a> = (
+    Entity,
+    &'a Selected,
+    &'a mut Position,
+    &'a mut Rotation,
+    &'a mut Scale,
+    Option<&'a mut CustomShader>,
+);
 
 pub fn run_ui(
     mut egui_glow: ResMut<EguiGlowRes>,
     window: Res<WinitWindow>,
     mut state: ResMut<UiState>,
-    mut selected_entities: Query<(
-        Entity,
-        &Selected,
-        &mut Position,
-        &mut Rotation,
-        &mut Scale,
-        Option<&mut CustomShader>,
-    )>,
+    mut model_loader: ResMut<ModelLoader>,
+    mut selected_entities: Query<SelectedQuery>,
     all_entities: Query<Entity>,
     mut commands: Commands,
 ) {
@@ -48,9 +51,16 @@ pub fn run_ui(
                     },
                 );
 
-                if let Ok((entity, _, mut pos, mut rotation, mut scale, _)) = selected {
-                    egui::SidePanel::right("right_panel").default_width(300.0).show(ctx, |ui| {
-                        ui.heading(format!("Entity {}", entity.index()));
+                egui::SidePanel::right("right_panel").default_width(300.0).show_animated(
+                    ctx,
+                    selected.is_ok(),
+                    |ui| {
+                        let Ok((entity, _, mut pos, mut rotation, mut scale, _)) = selected else {
+                            unreachable!();
+                        };
+
+                        ui.heading("Inspector");
+                        ui.strong(format!("Entity {}", entity.index()));
                         ui.separator();
 
                         egui::Grid::new("inspector_grid").spacing((20.0, 10.0)).show(ui, |ui| {
@@ -109,16 +119,42 @@ pub fn run_ui(
                             });
                             ui.end_row();
 
+                            ui.label("Change Model");
+                            ui.vertical(|ui| {
+                                egui::ComboBox::from_id_source("model_select")
+                                    .selected_text(format!("{:?}", state.selected_model))
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(
+                                            &mut state.selected_model,
+                                            ModelId::Cube,
+                                            "Cube",
+                                        );
+                                        ui.selectable_value(
+                                            &mut state.selected_model,
+                                            ModelId::Plane,
+                                            "Plane",
+                                        );
+                                    });
+
+                                if ui.button("Load").clicked() {
+                                    if let Ok(model) = model_loader.load_model(state.selected_model)
+                                    {
+                                        commands.entity(entity).insert(UnloadedMesh::from(model));
+                                    } else {
+                                        warn!("could not load model {:?}", state.selected_model);
+                                    }
+                                }
+                            });
+                            ui.end_row();
+
                             ui.label("Commands");
                             if ui.button("Despawn").clicked() {
                                 commands.add(DespawnMesh(entity));
                             }
                             ui.end_row();
                         });
-                    });
-                } else {
-                    state.editing_mode = None;
-                }
+                    },
+                );
             }
             Some(editing_mode) => {
                 if let Ok((entity, _, _, _, _, custom_shader)) = selected {

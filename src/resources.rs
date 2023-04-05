@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
@@ -91,6 +92,7 @@ pub struct UiState {
     pub camera_focused: bool,
     pub utilities_open: bool,
     pub editing_mode: Option<ShaderType>,
+    pub selected_model: ModelId,
 }
 
 impl UiState {
@@ -99,8 +101,9 @@ impl UiState {
         let camera_focused = false;
         let utilities_open = false;
         let editing_mode = None;
+        let selected_model = ModelId::Cube;
 
-        Self { width, height, camera_focused, utilities_open, editing_mode }
+        Self { width, height, camera_focused, utilities_open, editing_mode, selected_model }
     }
 }
 
@@ -156,7 +159,7 @@ impl std::ops::Deref for WinitWindow {
 
 #[derive(Resource)]
 pub struct ModelLoader {
-    models: HashMap<String, Model>,
+    models: HashMap<ModelId, Model>,
 }
 
 impl ModelLoader {
@@ -164,20 +167,36 @@ impl ModelLoader {
         Self { models: HashMap::new() }
     }
 
-    pub fn load_model(&mut self, name: &str) -> Result<&Model> {
-        if !self.models.contains_key(name) {
-            let mut path = Path::new("obj").join(name);
-            path.set_extension("obj");
-            let model = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)?
-                .0
-                .into_iter()
-                .next()
-                .ok_or(eyre!("obj file had no models"))?;
+    pub fn load_model(&mut self, id: ModelId) -> Result<&Model> {
+        match self.models.entry(id) {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => {
+                let path = Path::new("obj").join(id.file_name());
+                let model = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)
+                    .ok()
+                    .and_then(|(m, _)| m.into_iter().next());
 
-            self.models.insert(name.to_owned(), model);
+                match model {
+                    Some(m) => Ok(entry.insert(m)),
+                    None => Err(eyre!("OBJ either had no models or did not exist")),
+                }
+            }
         }
+    }
+}
 
-        Ok(self.models.get(name).unwrap())
+#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
+pub enum ModelId {
+    Cube,
+    Plane,
+}
+
+impl ModelId {
+    pub fn file_name(&self) -> &'static str {
+        match self {
+            ModelId::Cube => "cube.obj",
+            ModelId::Plane => "plane.obj",
+        }
     }
 }
 
