@@ -89,7 +89,7 @@ pub struct UiState {
     pub width: u32,
     pub height: u32,
     pub camera_focused: bool,
-    pub side_panel_open: bool,
+    pub utilities_open: bool,
     pub editing_mode: Option<ShaderType>,
 }
 
@@ -97,10 +97,10 @@ impl UiState {
     pub fn new(window: &Window) -> Self {
         let (width, height) = window.inner_size().into();
         let camera_focused = false;
-        let side_panel_open = false;
+        let utilities_open = false;
         let editing_mode = None;
 
-        Self { width, height, camera_focused, side_panel_open, editing_mode }
+        Self { width, height, camera_focused, utilities_open, editing_mode }
     }
 }
 
