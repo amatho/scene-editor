@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -92,7 +92,7 @@ pub struct UiState {
     pub camera_focused: bool,
     pub utilities_open: bool,
     pub editing_mode: Option<ShaderType>,
-    pub selected_model: ModelId,
+    pub selected_model: Option<String>,
 }
 
 impl UiState {
@@ -101,7 +101,7 @@ impl UiState {
         let camera_focused = false;
         let utilities_open = false;
         let editing_mode = None;
-        let selected_model = ModelId::Cube;
+        let selected_model = None;
 
         Self { width, height, camera_focused, utilities_open, editing_mode, selected_model }
     }
@@ -159,7 +159,7 @@ impl std::ops::Deref for WinitWindow {
 
 #[derive(Resource)]
 pub struct ModelLoader {
-    models: HashMap<ModelId, Model>,
+    models: HashMap<String, Model>,
 }
 
 impl ModelLoader {
@@ -167,36 +167,38 @@ impl ModelLoader {
         Self { models: HashMap::new() }
     }
 
-    pub fn load_model(&mut self, id: ModelId) -> Result<&Model> {
-        match self.models.entry(id) {
-            Entry::Occupied(entry) => Ok(entry.into_mut()),
-            Entry::Vacant(entry) => {
-                let path = Path::new("obj").join(id.file_name());
-                let model = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)
-                    .ok()
-                    .and_then(|(m, _)| m.into_iter().next());
-
-                match model {
-                    Some(m) => Ok(entry.insert(m)),
-                    None => Err(eyre!("OBJ either had no models or did not exist")),
-                }
-            }
+    pub fn load_models_in_dir<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        for entry in path.as_ref().read_dir()? {
+            let entry = entry?;
+            self.load_model(entry.path())?;
         }
+
+        Ok(())
     }
-}
 
-#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
-pub enum ModelId {
-    Cube,
-    Plane,
-}
+    pub fn load_model<P>(&mut self, path: P) -> Result<()>
+    where
+        P: AsRef<Path> + fmt::Debug,
+    {
+        let (models, _) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
+        let model = models.into_iter().next().ok_or_else(|| eyre!("OBJ had no models"))?;
+        self.models.insert(
+            path.as_ref()
+                .file_name()
+                .ok_or_else(|| eyre!("could not get file stem"))?
+                .to_string_lossy()
+                .into_owned(),
+            model,
+        );
+        Ok(())
+    }
 
-impl ModelId {
-    pub fn file_name(&self) -> &'static str {
-        match self {
-            ModelId::Cube => "cube.obj",
-            ModelId::Plane => "plane.obj",
-        }
+    pub fn get(&self, name: &str) -> Option<&Model> {
+        self.models.get(name)
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.models.keys()
     }
 }
 

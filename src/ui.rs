@@ -3,7 +3,7 @@ use tracing::warn;
 
 use crate::commands::{AddCustomShader, CompileCustomShader, DespawnMesh};
 use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, UnloadedMesh};
-use crate::resources::{EguiGlowRes, ModelId, ModelLoader, UiState, WinitWindow};
+use crate::resources::{EguiGlowRes, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
 type SelectedQuery<'a> = (
@@ -19,7 +19,7 @@ pub fn run_ui(
     mut egui_glow: ResMut<EguiGlowRes>,
     window: Res<WinitWindow>,
     mut state: ResMut<UiState>,
-    mut model_loader: ResMut<ModelLoader>,
+    model_loader: ResMut<ModelLoader>,
     mut selected_entities: Query<SelectedQuery>,
     all_mesh_entities: Query<(Entity, &Mesh)>,
     mut commands: Commands,
@@ -122,26 +122,32 @@ pub fn run_ui(
                             ui.label("Change Model");
                             ui.vertical(|ui| {
                                 egui::ComboBox::from_id_source("model_select")
-                                    .selected_text(format!("{:?}", state.selected_model))
+                                    .selected_text(match &state.selected_model {
+                                        Some(name) => name,
+                                        None => "Select a model...",
+                                    })
                                     .show_ui(ui, |ui| {
-                                        ui.selectable_value(
-                                            &mut state.selected_model,
-                                            ModelId::Cube,
-                                            "Cube",
-                                        );
-                                        ui.selectable_value(
-                                            &mut state.selected_model,
-                                            ModelId::Plane,
-                                            "Plane",
-                                        );
+                                        for name in model_loader.keys() {
+                                            ui.selectable_value(
+                                                &mut state.selected_model,
+                                                Some(name.clone()),
+                                                name,
+                                            );
+                                        }
                                     });
 
                                 if ui.button("Load").clicked() {
-                                    if let Ok(model) = model_loader.load_model(state.selected_model)
-                                    {
-                                        commands.entity(entity).insert(UnloadedMesh::from(model));
-                                    } else {
-                                        warn!("could not load model {:?}", state.selected_model);
+                                    if let Some(ref name) = state.selected_model {
+                                        if let Some(model) = model_loader.get(name) {
+                                            commands
+                                                .entity(entity)
+                                                .insert(UnloadedMesh::from(model));
+                                        } else {
+                                            warn!(
+                                                "could not load model {:?}",
+                                                state.selected_model
+                                            );
+                                        }
                                     }
                                 }
                             });

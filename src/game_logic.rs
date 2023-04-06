@@ -22,7 +22,7 @@ use winit::window::{CursorGrabMode, Window};
 
 use crate::components::{PointLight, Position, Scale, TransformBundle, UnloadedMesh};
 use crate::resources::{
-    Camera, EguiGlowRes, Input, ModelId, ModelLoader, RenderSettings, Time, UiState, WinitWindow,
+    Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, Time, UiState, WinitWindow,
 };
 use crate::{renderer, systems, ui, WinitEvent};
 
@@ -44,8 +44,9 @@ pub fn run_game_loop(
     let mut world = World::new();
 
     let mut model_loader = ModelLoader::new();
+    model_loader.load_models_in_dir("obj")?;
     world.spawn((
-        UnloadedMesh::from(model_loader.load_model(ModelId::Plane)?),
+        UnloadedMesh::from(model_loader.get("plane.obj").unwrap()),
         TransformBundle {
             position: Position::new(0.0, -2.0, -15.0),
             scale: Scale::new(10.0, 1.0, 10.0),
@@ -53,11 +54,11 @@ pub fn run_game_loop(
         },
     ));
     world.spawn((
-        UnloadedMesh::from(model_loader.load_model(ModelId::Cube)?),
+        UnloadedMesh::from(model_loader.get("cube.obj").unwrap()),
         TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
-        UnloadedMesh::from(model_loader.load_model(ModelId::Cube)?),
+        UnloadedMesh::from(model_loader.get("cube.obj").unwrap()),
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((PointLight::new(glm::vec3(1.0, 1.0, 1.0)), Position::new(0.0, 5.0, -15.0)));
