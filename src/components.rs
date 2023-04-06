@@ -7,7 +7,7 @@ use tobj::Model;
 use crate::gl_util;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Position {
     pub x: f32,
     pub y: f32,
@@ -20,14 +20,27 @@ impl Position {
     }
 }
 
-#[derive(Component, Default, Debug)]
+impl From<Position> for glm::Vec3 {
+    fn from(value: Position) -> Self {
+        glm::vec3(value.x, value.y, value.z)
+    }
+}
+
+/// Rotation in degrees
+#[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Rotation {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-#[derive(Component, Debug)]
+impl From<Rotation> for glm::Vec3 {
+    fn from(value: Rotation) -> Self {
+        glm::vec3(value.x.to_radians(), value.y.to_radians(), value.z.to_radians())
+    }
+}
+
+#[derive(Component, Debug, Copy, Clone)]
 pub struct Scale {
     pub x: f32,
     pub y: f32,
@@ -43,6 +56,12 @@ impl Scale {
 impl Default for Scale {
     fn default() -> Self {
         Self { x: 1.0, y: 1.0, z: 1.0 }
+    }
+}
+
+impl From<Scale> for glm::Vec3 {
+    fn from(value: Scale) -> Self {
+        glm::vec3(value.x, value.y, value.z)
     }
 }
 

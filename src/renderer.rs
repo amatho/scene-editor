@@ -51,13 +51,14 @@ pub fn render(
     let vp =
         camera.projection * glm::look_at(&camera.pos, &(camera.pos + camera.front), &camera.up);
 
-    for (i, (entity, mesh, pos, rot, scale, selected, custom_shader)) in geometry.iter().enumerate()
+    for (i, (entity, mesh, &pos, &rot, &scale, selected, custom_shader)) in
+        geometry.iter().enumerate()
     {
-        let model = glm::translation(&glm::vec3(pos.x, pos.y, pos.z))
-            * glm::rotation(rot.y, &glm::vec3(0.0, 1.0, 0.0))
-            * glm::rotation(rot.x, &glm::vec3(1.0, 0.0, 0.0))
-            * glm::rotation(rot.z, &glm::vec3(0.0, 0.0, 1.0))
-            * glm::scaling(&glm::vec3(scale.x, scale.y, scale.z));
+        let model = glm::translation(&pos.into())
+            * glm::rotation(rot.y.to_radians(), &glm::vec3(0.0, 1.0, 0.0))
+            * glm::rotation(rot.x.to_radians(), &glm::vec3(1.0, 0.0, 0.0))
+            * glm::rotation(rot.z.to_radians(), &glm::vec3(0.0, 0.0, 1.0))
+            * glm::scaling(&scale.into());
 
         let mvp = vp * model;
         let id = i + 1;
@@ -73,13 +74,8 @@ pub fn render(
             gl_util::uniform_mat4(&gl, shader.program, "mvp", &mvp);
             gl_util::uniform_mat4(&gl, shader.program, "model", &model);
 
-            let (light, light_pos) = lights.single();
-            gl_util::uniform_vec3(
-                &gl,
-                shader.program,
-                "lightPos",
-                &glm::vec3(light_pos.x, light_pos.y, light_pos.z),
-            );
+            let (light, &light_pos) = lights.single();
+            gl_util::uniform_vec3(&gl, shader.program, "lightPos", &light_pos.into());
             gl_util::uniform_vec3(&gl, shader.program, "lightColor", &light.color);
             gl_util::uniform_vec3(&gl, shader.program, "viewPos", &camera.pos);
 
@@ -90,7 +86,12 @@ pub fn render(
             if selected.is_some() {
                 // Redraw the object in bigger scale, with stencil testing and outline shader
 
-                let mvp = mvp * glm::scaling(&glm::vec3(1.1, 1.1, 1.1));
+                let mvp = mvp
+                    * glm::scaling(
+                        &glm::Vec3::from(scale)
+                            .add_scalar(0.1)
+                            .component_div(&glm::Vec3::from(scale)),
+                    );
 
                 render_settings.outline_shader.activate(&gl);
 

@@ -78,11 +78,11 @@ pub fn run_ui(
                             ui.label("Rotation");
                             ui.horizontal(|ui| {
                                 ui.label("X:");
-                                ui.add(egui::DragValue::new(&mut rotation.x).speed(0.1));
+                                ui.add(egui::DragValue::new(&mut rotation.x).speed(1.0));
                                 ui.label("Y:");
-                                ui.add(egui::DragValue::new(&mut rotation.y).speed(0.1));
+                                ui.add(egui::DragValue::new(&mut rotation.y).speed(1.0));
                                 ui.label("Z:");
-                                ui.add(egui::DragValue::new(&mut rotation.z).speed(0.1));
+                                ui.add(egui::DragValue::new(&mut rotation.z).speed(1.0));
                             });
                             ui.end_row();
 
