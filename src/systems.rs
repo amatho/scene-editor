@@ -10,11 +10,7 @@ use crate::commands;
 use crate::components::{Position, Selected, StencilId, TransformBundle, UnloadedMesh};
 use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
 
-pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
-    if !input.is_changed() {
-        return;
-    }
-
+pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
     let up = camera.up;
     const CAMERA_SPEED: f32 = 25.0;
@@ -34,8 +30,6 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
         pitch_radians.sin() as f32,
         (yaw_radians.sin() * pitch_radians.cos()) as f32,
     ));
-
-    input.mouse_delta = (0.0, 0.0);
 
     let speed = CAMERA_SPEED * time.delta_time * speed_modifier;
     if input.get_key_press_continuous(VirtualKeyCode::W) {
@@ -60,9 +54,9 @@ pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: R
 
 pub fn spawn_object(
     camera: Res<Camera>,
-    mut input: ResMut<Input>,
+    input: Res<Input>,
     ui_state: Res<UiState>,
-    model_loader: ResMut<ModelLoader>,
+    model_loader: Res<ModelLoader>,
     mut commands: Commands,
 ) {
     if (ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
@@ -83,7 +77,7 @@ pub fn spawn_object(
 pub fn select_object(
     gl: NonSend<Arc<Context>>,
     ui_state: Res<UiState>,
-    mut input: ResMut<Input>,
+    input: Res<Input>,
     already_selected: Query<(Entity, &Selected)>,
     query: Query<(Entity, &StencilId)>,
     mut commands: Commands,

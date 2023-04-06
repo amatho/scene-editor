@@ -134,7 +134,7 @@ pub fn run_game_loop(
                                     .handle_mouse_button_input(button, state);
                             }
                             WindowEvent::CursorMoved { position, .. } => {
-                                world.resource_mut::<Input>().handle_mouse_move(position.into());
+                                world.resource_mut::<Input>().mouse_pos = position.into();
                             }
                             WindowEvent::KeyboardInput {
                                 input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
@@ -177,6 +177,8 @@ pub fn run_game_loop(
         render_schedule.run(&mut world);
 
         gl_surface.swap_buffers(&gl_context).unwrap();
+
+        world.resource_mut::<Input>().update_after_frame();
 
         let now = Instant::now();
         let delta_time = now.duration_since(previous_frame_time).as_secs_f32();

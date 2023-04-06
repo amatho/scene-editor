@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
@@ -209,17 +209,22 @@ pub struct Time {
 
 #[derive(Resource, Default)]
 pub struct Input {
-    keys: HashSet<VirtualKeyCode>,
+    keys: HashMap<VirtualKeyCode, HeldState>,
     pub mouse_delta: (f64, f64),
     pub mouse_pos: (f64, f64),
-    mouse_buttons: HashSet<MouseButton>,
+    mouse_buttons: HashMap<MouseButton, HeldState>,
+}
+
+enum HeldState {
+    Pressed,
+    Held,
 }
 
 impl Input {
     pub fn handle_keyboard_input(&mut self, keycode: VirtualKeyCode, state: ElementState) {
         match state {
             ElementState::Pressed => {
-                self.keys.insert(keycode);
+                self.keys.insert(keycode, HeldState::Pressed);
             }
             ElementState::Released => {
                 self.keys.remove(&keycode);
@@ -230,7 +235,7 @@ impl Input {
     pub fn handle_mouse_button_input(&mut self, button: MouseButton, state: ElementState) {
         match state {
             ElementState::Pressed => {
-                self.mouse_buttons.insert(button);
+                self.mouse_buttons.insert(button, HeldState::Pressed);
             }
             ElementState::Released => {
                 self.mouse_buttons.remove(&button);
@@ -238,24 +243,36 @@ impl Input {
         }
     }
 
-    pub fn handle_mouse_move(&mut self, position: (f64, f64)) {
-        self.mouse_pos = position;
+    /// Update input state after the frame
+    pub fn update_after_frame(&mut self) {
+        // Keys already existing in map are now marked as held
+        for val in self.keys.values_mut() {
+            *val = HeldState::Held;
+        }
+
+        // Same as above
+        for val in self.mouse_buttons.values_mut() {
+            *val = HeldState::Held;
+        }
+
+        // Reset mouse delta to allow camera to be held still
+        self.mouse_delta = (0.0, 0.0);
     }
 
-    pub fn get_key_press(&mut self, keycode: VirtualKeyCode) -> bool {
-        self.keys.remove(&keycode)
+    pub fn get_key_press(&self, keycode: VirtualKeyCode) -> bool {
+        matches!(self.keys.get(&keycode), Some(HeldState::Pressed))
     }
 
     pub fn get_key_press_continuous(&self, keycode: VirtualKeyCode) -> bool {
-        self.keys.contains(&keycode)
+        self.keys.get(&keycode).is_some()
     }
 
-    pub fn get_mouse_button_press(&mut self, button: MouseButton) -> bool {
-        self.mouse_buttons.remove(&button)
+    pub fn get_mouse_button_press(&self, button: MouseButton) -> bool {
+        matches!(self.mouse_buttons.get(&button), Some(HeldState::Pressed))
     }
 
     #[allow(dead_code)]
     pub fn get_mouse_button_press_continuous(&self, button: MouseButton) -> bool {
-        self.mouse_buttons.contains(&button)
+        self.mouse_buttons.get(&button).is_some()
     }
 }
