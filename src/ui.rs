@@ -6,22 +6,16 @@ use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected,
 use crate::resources::{EguiGlowRes, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
-type SelectedQuery<'a> = (
-    Entity,
-    &'a Selected,
-    &'a mut Position,
-    &'a mut Rotation,
-    &'a mut Scale,
-    Option<&'a mut CustomShader>,
-);
+type EntityQuery<'a> =
+    (Entity, &'a mut Position, &'a mut Rotation, &'a mut Scale, Option<&'a mut CustomShader>);
 
 pub fn run_ui(
     mut egui_glow: ResMut<EguiGlowRes>,
     window: Res<WinitWindow>,
     mut state: ResMut<UiState>,
-    model_loader: ResMut<ModelLoader>,
-    mut selected_entities: Query<SelectedQuery>,
-    all_mesh_entities: Query<(Entity, &Mesh)>,
+    model_loader: Res<ModelLoader>,
+    mut selected_entities: Query<EntityQuery, With<Selected>>,
+    all_mesh_entities: Query<Entity, With<Mesh>>,
     mut commands: Commands,
 ) {
     // Need to reborrow for borrow checker to understand that we borrow different fields
@@ -44,7 +38,7 @@ pub fn run_ui(
                     |ui| {
                         ui.heading("🔧 Utilities");
                         if ui.button("Despawn all").clicked() {
-                            for (entity, _) in &all_mesh_entities {
+                            for entity in &all_mesh_entities {
                                 commands.entity(entity).add(commands::despawn_and_destroy);
                             }
                         }
@@ -55,7 +49,7 @@ pub fn run_ui(
                     ctx,
                     selected.is_ok(),
                     |ui| {
-                        let Ok((entity, _, mut pos, mut rotation, mut scale, _)) = selected else {
+                        let Ok((entity, mut pos, mut rotation, mut scale, _)) = selected else {
                             unreachable!();
                         };
 
@@ -163,7 +157,7 @@ pub fn run_ui(
                 );
             }
             Some(editing_mode) => {
-                if let Ok((entity, _, _, _, _, custom_shader)) = selected {
+                if let Ok((entity, _, _, _, custom_shader)) = selected {
                     match custom_shader {
                         Some(mut cs) => {
                             egui::CentralPanel::default().show(ctx, |ui| {

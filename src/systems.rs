@@ -78,12 +78,12 @@ pub fn select_object(
     gl: NonSend<Arc<Context>>,
     ui_state: Res<UiState>,
     input: Res<Input>,
-    already_selected: Query<(Entity, &Selected)>,
+    already_selected: Query<Entity, With<Selected>>,
     query: Query<(Entity, &StencilId)>,
     mut commands: Commands,
 ) {
     if !ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left) {
-        for (entity, _) in &already_selected {
+        for entity in &already_selected {
             commands.entity(entity).remove::<Selected>();
         }
 
