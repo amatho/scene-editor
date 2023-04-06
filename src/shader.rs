@@ -17,6 +17,10 @@ impl Shader {
     pub fn activate(&self, gl: &Context) {
         unsafe { gl.use_program(Some(self.program)) }
     }
+
+    pub unsafe fn destroy(&mut self, gl: &Context) {
+        gl.delete_program(self.program);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -95,6 +99,7 @@ impl<'a> ShaderBuilder<'a> {
             self.gl.link_program(program);
 
             if !self.gl.get_program_link_status(program) {
+                self.gl.delete_program(program);
                 return Err(eyre!(
                     "shader program linking failed:\n{}",
                     self.gl.get_program_info_log(program)

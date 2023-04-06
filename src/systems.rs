@@ -6,7 +6,8 @@ use nalgebra_glm as glm;
 use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle, UnloadedMesh};
+use crate::commands;
+use crate::components::{Position, Selected, StencilId, TransformBundle, UnloadedMesh};
 use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
 
 pub fn move_camera(mut input: ResMut<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
@@ -123,13 +124,8 @@ pub fn select_object(
     }
 }
 
-pub fn load_object_meshes(
-    gl: NonSend<Arc<Context>>,
-    query: Query<(Entity, &UnloadedMesh), Added<UnloadedMesh>>,
-    mut commands: Commands,
-) {
-    for (entity, unloaded_mesh) in &query {
-        let mesh = Mesh::new(&gl, unloaded_mesh);
-        commands.entity(entity).remove::<UnloadedMesh>().insert(mesh);
+pub fn load_object_meshes(query: Query<Entity, Added<UnloadedMesh>>, mut commands: Commands) {
+    for entity in &query {
+        commands.entity(entity).add(commands::load_mesh);
     }
 }

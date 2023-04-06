@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use tracing::warn;
 
-use crate::commands::{AddCustomShader, CompileCustomShader, DespawnMesh};
+use crate::commands;
 use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, UnloadedMesh};
 use crate::resources::{EguiGlowRes, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
@@ -45,7 +45,7 @@ pub fn run_ui(
                         ui.heading("🔧 Utilities");
                         if ui.button("Despawn all").clicked() {
                             for (entity, _) in &all_mesh_entities {
-                                commands.add(DespawnMesh(entity));
+                                commands.entity(entity).add(commands::despawn_and_destroy);
                             }
                         }
                     },
@@ -114,7 +114,7 @@ pub fn run_ui(
                                     state.editing_mode = Some(ShaderType::Fragment);
                                 }
                                 if ui.button("Reset Shaders").clicked() {
-                                    commands.entity(entity).remove::<CustomShader>();
+                                    commands.entity(entity).add(commands::remove_custom_shader);
                                 }
                             });
                             ui.end_row();
@@ -155,7 +155,7 @@ pub fn run_ui(
 
                             ui.label("Commands");
                             if ui.button("Despawn").clicked() {
-                                commands.add(DespawnMesh(entity));
+                                commands.entity(entity).add(commands::despawn_and_destroy);
                             }
                             ui.end_row();
                         });
@@ -187,12 +187,12 @@ pub fn run_ui(
                                 if response.clicked() {
                                     state.editing_mode = None;
 
-                                    commands.add(CompileCustomShader(entity));
+                                    commands.entity(entity).add(commands::compile_custom_shader);
                                 }
                             });
                         }
                         None => {
-                            commands.add(AddCustomShader(entity));
+                            commands.entity(entity).add(commands::add_custom_shader);
                         }
                     }
                 }
