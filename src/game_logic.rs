@@ -80,16 +80,18 @@ pub fn run_game_loop(
     world.insert_resource(EguiGlowRes::new(egui_glow));
     world.insert_resource(WinitWindow::new(window.clone()));
     world.insert_resource(UiState::new(&window));
-    world.insert_resource(Input::default());
-    world.insert_resource(Time::default());
+    world.init_resource::<Input>();
+    world.init_resource::<Time>();
 
     let mut schedule = Schedule::default();
-    schedule.add_system(ui::run_ui);
-    schedule.add_system(systems::move_camera);
-    schedule.add_system(systems::spawn_object);
-    schedule.add_system(systems::select_object);
+    schedule.add_systems((
+        ui::run_ui,
+        systems::move_camera,
+        systems::spawn_object,
+        systems::select_object,
+    ));
 
-    let mut render_schedule = Schedule::new();
+    let mut render_schedule = Schedule::default();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     render_schedule.add_systems((renderer::render, ui::paint_ui).chain());
 
@@ -183,6 +185,8 @@ pub fn run_game_loop(
         let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
         previous_frame_time = now;
         world.resource_mut::<Time>().delta_time = delta_time;
+
+        world.clear_trackers();
     }
 }
 
