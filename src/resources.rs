@@ -9,7 +9,6 @@ use color_eyre::Result;
 use egui_glow::EguiGlow;
 use glow::{Context, HasContext, Texture};
 use nalgebra_glm as glm;
-use tobj::Model;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
@@ -159,7 +158,7 @@ impl std::ops::Deref for WinitWindow {
 
 #[derive(Resource)]
 pub struct ModelLoader {
-    models: HashMap<String, Model>,
+    models: HashMap<String, tobj::Mesh>,
 }
 
 impl ModelLoader {
@@ -182,18 +181,11 @@ impl ModelLoader {
     {
         let (models, _) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
         let model = models.into_iter().next().ok_or_else(|| eyre!("OBJ had no models"))?;
-        self.models.insert(
-            path.as_ref()
-                .file_name()
-                .ok_or_else(|| eyre!("could not get file stem"))?
-                .to_string_lossy()
-                .into_owned(),
-            model,
-        );
+        self.models.insert(model.name, model.mesh);
         Ok(())
     }
 
-    pub fn get(&self, name: &str) -> Option<&Model> {
+    pub fn get(&self, name: &str) -> Option<&tobj::Mesh> {
         self.models.get(name)
     }
 

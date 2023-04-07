@@ -1,8 +1,7 @@
 use bevy_ecs::prelude::*;
-use tracing::warn;
 
-use crate::commands;
-use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected, UnloadedMesh};
+use crate::commands::{self, LoadMesh};
+use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected};
 use crate::resources::{EguiGlowRes, ModelLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
@@ -132,16 +131,7 @@ pub fn run_ui(
 
                                 if ui.button("Load").clicked() {
                                     if let Some(ref name) = state.selected_model {
-                                        if let Some(model) = model_loader.get(name) {
-                                            commands
-                                                .entity(entity)
-                                                .insert(UnloadedMesh::from(model));
-                                        } else {
-                                            warn!(
-                                                "could not load model {:?}",
-                                                state.selected_model
-                                            );
-                                        }
+                                        commands.add(LoadMesh::new(entity, name.to_owned()));
                                     }
                                 }
                             });

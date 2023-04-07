@@ -5,21 +5,36 @@ use std::path::Path;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use glow::{Context, HasContext};
+use tracing::warn;
 
 pub const DEFAULT_VERT: &str = include_str!("../shaders/default_vert.glsl");
 pub const DEFAULT_FRAG: &str = include_str!("../shaders/default_frag.glsl");
 
 pub struct Shader {
     pub program: glow::Program,
+    destroyed: bool,
 }
 
 impl Shader {
+    pub fn new(program: glow::Program) -> Self {
+        Self { program, destroyed: false }
+    }
+
     pub fn activate(&self, gl: &Context) {
         unsafe { gl.use_program(Some(self.program)) }
     }
 
     pub unsafe fn destroy(&mut self, gl: &Context) {
         gl.delete_program(self.program);
+        self.destroyed = true;
+    }
+}
+
+impl Drop for Shader {
+    fn drop(&mut self) {
+        if !self.destroyed {
+            warn!("shader program was not destroyed (Program: {:?})", self.program);
+        }
     }
 }
 
@@ -113,6 +128,6 @@ impl<'a> ShaderBuilder<'a> {
             }
         }
 
-        Ok(Shader { program })
+        Ok(Shader::new(program))
     }
 }

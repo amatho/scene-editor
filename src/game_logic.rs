@@ -20,7 +20,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyboardInput, MouseButton, WindowEvent};
 use winit::window::{CursorGrabMode, Window};
 
-use crate::components::{PointLight, Position, Scale, TransformBundle, UnloadedMesh};
+use crate::components::{CustomShader, Mesh, PointLight, Position, Scale, TransformBundle};
 use crate::resources::{
     Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, Time, UiState, WinitWindow,
 };
@@ -46,7 +46,7 @@ pub fn run_game_loop(
     let mut model_loader = ModelLoader::new();
     model_loader.load_models_in_dir("obj")?;
     world.spawn((
-        UnloadedMesh::from(model_loader.get("plane.obj").unwrap()),
+        Mesh::from_tobj_mesh(&gl, model_loader.get("Plane").unwrap()),
         TransformBundle {
             position: Position::new(0.0, -2.0, -15.0),
             scale: Scale::new(10.0, 1.0, 10.0),
@@ -54,11 +54,11 @@ pub fn run_game_loop(
         },
     ));
     world.spawn((
-        UnloadedMesh::from(model_loader.get("cube.obj").unwrap()),
+        Mesh::from_tobj_mesh(&gl, model_loader.get("Cube").unwrap()),
         TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
-        UnloadedMesh::from(model_loader.get("cube.obj").unwrap()),
+        Mesh::from_tobj_mesh(&gl, model_loader.get("Cube").unwrap()),
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((PointLight::new(glm::vec3(1.0, 1.0, 1.0)), Position::new(0.0, 5.0, -15.0)));
@@ -88,7 +88,6 @@ pub fn run_game_loop(
     schedule.add_system(systems::move_camera);
     schedule.add_system(systems::spawn_object);
     schedule.add_system(systems::select_object);
-    schedule.add_system(systems::load_object_meshes);
 
     let mut render_schedule = Schedule::new();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
@@ -167,7 +166,7 @@ pub fn run_game_loop(
                     }
                 }
                 WinitEvent::LoopDestroyed => {
-                    world.resource_mut::<EguiGlowRes>().destroy();
+                    cleanup(&mut world);
                     break 'game_loop Ok(());
                 }
             }
@@ -211,5 +210,33 @@ fn resize(
             // Resize viewport
             world.non_send_resource::<Arc<Context>>().viewport(0, 0, width as i32, height as i32);
         }
+    }
+}
+
+fn cleanup(world: &mut World) {
+    world.resource_mut::<EguiGlowRes>().destroy();
+
+    let gl = world.non_send_resource::<Arc<Context>>().clone();
+
+    let mut query = world.query::<&mut Mesh>();
+    for mut mesh in query.iter_mut(world) {
+        unsafe {
+            mesh.destroy(&gl);
+        }
+    }
+
+    let mut query = world.query::<&mut CustomShader>();
+    for mut cs in query.iter_mut(world) {
+        if let Ok(ref mut shader) = cs.shader {
+            unsafe {
+                shader.destroy(&gl);
+            }
+        }
+    }
+
+    let mut render_settings = world.resource_mut::<RenderSettings>();
+    unsafe {
+        render_settings.default_shader.destroy(&gl);
+        render_settings.outline_shader.destroy(&gl);
     }
 }

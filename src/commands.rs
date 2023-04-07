@@ -1,34 +1,67 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::Command;
 use glow::Context;
 use tracing::{debug, info, warn};
 
-use crate::components::{CustomShader, Mesh, UnloadedMesh};
+use crate::components::{CustomShader, Mesh};
+use crate::resources::ModelLoader;
 use crate::shader::{ShaderBuilder, ShaderType};
 
-/// Load a new mesh for an entity, removing the existing mesh if there is one
-pub fn load_mesh(entity: Entity, world: &mut World) {
-    let gl = world.non_send_resource::<Arc<Context>>().clone();
-    if let Some(unloaded_mesh) = world.entity(entity).get::<UnloadedMesh>() {
-        let mesh = Mesh::new(&gl, unloaded_mesh);
+pub struct LoadMesh {
+    entity: Entity,
+    model_name: Cow<'static, str>,
+}
 
-        if let Some(mesh) = world.entity_mut(entity).get_mut::<Mesh>() {
-            unsafe {
-                mesh.destroy(&gl);
+impl LoadMesh {
+    pub fn new<T>(entity: Entity, model_name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
+        Self { entity, model_name: model_name.into() }
+    }
+}
+
+impl Command for LoadMesh {
+    fn write(self, world: &mut World) {
+        let gl = world.non_send_resource::<Arc<Context>>().clone();
+        let model_loader = world.resource::<ModelLoader>();
+
+        if let Some(tobj_mesh) = model_loader.get(&self.model_name) {
+            let mesh = Mesh::from_tobj_mesh(&gl, tobj_mesh);
+            let mut entity_mut = world.entity_mut(self.entity);
+
+            // Clean up after old mesh
+            if let Some(mut mesh) = entity_mut.get_mut::<Mesh>() {
+                unsafe {
+                    mesh.destroy(&gl);
+                }
+
+                entity_mut.remove::<Mesh>();
             }
-        }
 
-        world.entity_mut(entity).remove::<UnloadedMesh>().insert(mesh);
+            entity_mut.insert(mesh);
+        } else {
+            warn!("could not load model {:?}", self.model_name);
+        }
     }
 }
 
 /// Despawn an entity and destroy its OpenGL resources
 pub fn despawn_and_destroy(entity: Entity, world: &mut World) {
-    let gl = world.non_send_resource::<Arc<Context>>();
-    if let Some(mesh) = world.entity(entity).get::<Mesh>() {
+    let gl = world.non_send_resource::<Arc<Context>>().clone();
+    if let Some(mut mesh) = world.entity_mut(entity).get_mut::<Mesh>() {
         unsafe {
-            mesh.destroy(gl);
+            mesh.destroy(&gl);
+        }
+    }
+    if let Some(mut cs) = world.entity_mut(entity).get_mut::<CustomShader>() {
+        if let Ok(ref mut shader) = cs.shader {
+            unsafe {
+                shader.destroy(&gl);
+            }
         }
     }
     world.despawn(entity);

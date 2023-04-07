@@ -6,9 +6,9 @@ use nalgebra_glm as glm;
 use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::commands;
-use crate::components::{Position, Selected, StencilId, TransformBundle, UnloadedMesh};
-use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
+use crate::commands::LoadMesh;
+use crate::components::{Position, Selected, StencilId, TransformBundle};
+use crate::resources::{Camera, Input, Time, UiState};
 
 pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -56,7 +56,6 @@ pub fn spawn_object(
     camera: Res<Camera>,
     input: Res<Input>,
     ui_state: Res<UiState>,
-    model_loader: Res<ModelLoader>,
     mut commands: Commands,
 ) {
     if (ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
@@ -67,10 +66,8 @@ pub fn spawn_object(
 
         debug!("spawning a cube at {:?}", position);
 
-        commands.spawn((
-            UnloadedMesh::from(model_loader.get("cube.obj").unwrap()),
-            TransformBundle { position, ..Default::default() },
-        ));
+        let entity = commands.spawn((TransformBundle { position, ..Default::default() },)).id();
+        commands.add(LoadMesh::new(entity, "Cube"));
     }
 }
 
@@ -115,11 +112,5 @@ pub fn select_object(
         if !found {
             debug!("found no object to select");
         }
-    }
-}
-
-pub fn load_object_meshes(query: Query<Entity, Added<UnloadedMesh>>, mut commands: Commands) {
-    for entity in &query {
-        commands.entity(entity).add(commands::load_mesh);
     }
 }

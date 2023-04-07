@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use color_eyre::Result;
 use glow::{Buffer, Context, VertexArray};
 use nalgebra_glm as glm;
-use tobj::Model;
+use tracing::warn;
 
 use crate::gl_util;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
@@ -73,68 +73,44 @@ pub struct TransformBundle {
 }
 
 #[derive(Component)]
-pub struct UnloadedMesh {
-    vertices: Box<[glm::Vec3]>,
-    indices: Box<[u32]>,
-    normals: Box<[glm::Vec3]>,
-    texture_coords: Box<[glm::Vec2]>,
-}
-
-impl UnloadedMesh {
-    pub fn new(
-        vertices: &[glm::Vec3],
-        indices: &[u32],
-        normals: &[glm::Vec3],
-        texture_coords: &[glm::Vec2],
-    ) -> Self {
-        let vertices = vertices.into();
-        let indices = indices.into();
-        let normals = normals.into();
-        let texture_coords = texture_coords.into();
-        Self { vertices, indices, normals, texture_coords }
-    }
-}
-
-impl From<&Model> for UnloadedMesh {
-    /// Create a new `UnloadedMesh` from the given `Model`.
-    fn from(model: &Model) -> Self {
-        let vertices = bytemuck::cast_slice(&model.mesh.positions);
-        let indices = model.mesh.indices.as_slice();
-        let normals = bytemuck::cast_slice(&model.mesh.normals);
-        let texture_coords = bytemuck::cast_slice(&model.mesh.texcoords);
-
-        UnloadedMesh::new(vertices, indices, normals, texture_coords)
-    }
-}
-
-#[derive(Component)]
 pub struct Mesh {
     pub vao: VertexArray,
     pub num_indices: usize,
     pub buffers: Vec<Buffer>,
+    destroyed: bool,
 }
 
 impl Mesh {
-    pub fn new(gl: &Context, unloaded_mesh: &UnloadedMesh) -> Self {
+    pub fn from_tobj_mesh(gl: &Context, tobj_mesh: &tobj::Mesh) -> Self {
         let (vao, buffers) = unsafe {
             gl_util::create_vao(
                 gl,
-                &unloaded_mesh.vertices,
-                &unloaded_mesh.indices,
-                &unloaded_mesh.normals,
-                &unloaded_mesh.texture_coords,
+                bytemuck::cast_slice(&tobj_mesh.positions),
+                &tobj_mesh.indices,
+                bytemuck::cast_slice(&tobj_mesh.normals),
+                bytemuck::cast_slice(&tobj_mesh.texcoords),
             )
         };
-        let num_indices = unloaded_mesh.indices.len();
+        let num_indices = tobj_mesh.indices.len();
         let buffers = buffers.to_vec();
-        Self { vao, num_indices, buffers }
+        let destroyed = false;
+        Self { vao, num_indices, buffers, destroyed }
     }
 
     /// # Safety
     ///
     /// The VAO and buffers of this mesh are no longer valid and should not be used.
-    pub unsafe fn destroy(&self, gl: &Context) {
+    pub unsafe fn destroy(&mut self, gl: &Context) {
         gl_util::delete_vao(gl, self.vao, &self.buffers);
+        self.destroyed = true;
+    }
+}
+
+impl Drop for Mesh {
+    fn drop(&mut self) {
+        if !self.destroyed {
+            warn!("mesh was not destroyed (VAO: {:?})", self.vao);
+        }
     }
 }
 
