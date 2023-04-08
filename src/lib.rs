@@ -10,6 +10,7 @@ mod ui;
 
 use std::cell::Cell;
 use std::ffi::CString;
+use std::sync::mpsc::SendError;
 use std::sync::{mpsc, Arc};
 use std::thread;
 
@@ -106,21 +107,28 @@ pub fn run() -> Result<()> {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size },
                 ..
             } => {
-                event_sender
-                    .send(WinitEvent::ScaleFactorChanged {
-                        scale_factor,
-                        new_size: *new_inner_size,
-                    })
-                    .unwrap();
+                let res = event_sender.send(WinitEvent::ScaleFactorChanged {
+                    scale_factor,
+                    new_size: *new_inner_size,
+                });
+                if res.is_err() {
+                    get_thread_result(&game_loop_thread).unwrap();
+                }
             }
             Event::WindowEvent { event, .. } => {
-                event_sender.send(WinitEvent::WindowEvent(event.to_static().unwrap())).unwrap();
+                let res = event_sender.send(WinitEvent::WindowEvent(event.to_static().unwrap()));
+                if res.is_err() {
+                    get_thread_result(&game_loop_thread).unwrap();
+                }
             }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
-                event_sender.send(WinitEvent::MouseMotion(delta)).unwrap();
+                let res = event_sender.send(WinitEvent::MouseMotion(delta));
+                if res.is_err() {
+                    get_thread_result(&game_loop_thread).unwrap();
+                }
             }
             Event::LoopDestroyed => {
-                event_sender.send(WinitEvent::LoopDestroyed).unwrap();
+                let _ = event_sender.send(WinitEvent::LoopDestroyed);
                 if let Some(thread) = game_loop_thread.take() {
                     thread.join().unwrap().unwrap();
                 }
@@ -173,4 +181,8 @@ fn create_glutin_window() -> (Context, PossiblyCurrentContext, Config, Window, E
     };
 
     (gl, gl_context, gl_config, window, event_loop)
+}
+
+fn get_thread_result(cell: &Cell<Option<thread::JoinHandle<Result<()>>>>) -> Result<()> {
+    if let Some(thread) = cell.take() { thread.join().unwrap() } else { Ok(()) }
 }

@@ -73,11 +73,33 @@ pub fn render(
             shader.activate(&gl);
             gl_util::uniform_mat4(&gl, shader.program, "mvp", &mvp);
             gl_util::uniform_mat4(&gl, shader.program, "model", &model);
+            gl_util::uniform_vec3(&gl, shader.program, "viewPos", &camera.pos);
+
+            gl_util::uniform_vec3(
+                &gl,
+                shader.program,
+                "material.ambient",
+                &glm::vec3(0.0, 0.0, 0.0),
+            );
+            gl_util::uniform_vec3(
+                &gl,
+                shader.program,
+                "material.diffuse",
+                &glm::vec3(0.55, 0.55, 0.55),
+            );
+            gl_util::uniform_vec3(
+                &gl,
+                shader.program,
+                "material.specular",
+                &glm::vec3(0.70, 0.70, 0.70),
+            );
+            gl_util::uniform_float(&gl, shader.program, "material.shininess", 32.0);
 
             let (light, &light_pos) = lights.single();
-            gl_util::uniform_vec3(&gl, shader.program, "lightPos", &light_pos.into());
-            gl_util::uniform_vec3(&gl, shader.program, "lightColor", &light.color);
-            gl_util::uniform_vec3(&gl, shader.program, "viewPos", &camera.pos);
+            gl_util::uniform_vec3(&gl, shader.program, "light.position", &light_pos.into());
+            gl_util::uniform_vec3(&gl, shader.program, "light.ambient", &glm::vec3(0.2, 0.2, 0.2));
+            gl_util::uniform_vec3(&gl, shader.program, "light.diffuse", &glm::vec3(1.0, 1.0, 1.0));
+            gl_util::uniform_vec3(&gl, shader.program, "light.specular", &glm::vec3(1.0, 1.0, 1.0));
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
             gl.bind_vertex_array(Some(mesh.vao));
