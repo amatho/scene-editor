@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -22,7 +23,7 @@ pub struct RenderSettings {
 }
 
 impl RenderSettings {
-    pub fn new(gl: &Context) -> Result<Self> {
+    pub fn new(gl: &Context, default_texture: Texture) -> Result<Self> {
         let default_shader = ShaderBuilder::new(gl)
             .add_shader_source(crate::shader::DEFAULT_VERT, ShaderType::Vertex)?
             .add_shader_source(crate::shader::DEFAULT_FRAG, ShaderType::Fragment)?
@@ -32,24 +33,6 @@ impl RenderSettings {
             .add_shader_source(include_str!("../shaders/outline_vert.glsl"), ShaderType::Vertex)?
             .add_shader_source(include_str!("../shaders/outline_frag.glsl"), ShaderType::Fragment)?
             .link()?;
-
-        let default_texture = unsafe {
-            let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
-            gl.bind_texture(glow::TEXTURE_2D, Some(tex));
-            let pixels: [u8; 4] = [229, 229, 229, 255];
-            gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::RGBA as i32,
-                1,
-                1,
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                Some(&pixels),
-            );
-            tex
-        };
 
         Ok(Self { default_shader, outline_shader, default_texture })
     }
@@ -166,7 +149,10 @@ impl ModelLoader {
         Self { models: HashMap::new() }
     }
 
-    pub fn load_models_in_dir<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+    pub fn load_models_in_dir<P>(&mut self, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
         for entry in path.as_ref().read_dir()? {
             let entry = entry?;
             self.load_model(entry.path())?;
@@ -191,6 +177,98 @@ impl ModelLoader {
 
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.models.keys()
+    }
+}
+
+pub struct TextureLoader {
+    textures: HashMap<String, glow::Texture>,
+}
+
+impl TextureLoader {
+    pub fn new() -> Self {
+        Self { textures: HashMap::new() }
+    }
+
+    pub fn load_textures_in_dir<P>(&mut self, gl: &Context, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        for entry in path.as_ref().read_dir()? {
+            let entry = entry?;
+            self.load_texture(gl, entry.path())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn load_texture<P>(&mut self, gl: &Context, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let decoder = png::Decoder::new(File::open(path.as_ref())?);
+        let mut reader = decoder.read_info()?;
+        let mut buf = vec![0; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf)?;
+
+        if info.bit_depth != png::BitDepth::Eight {
+            return Err(eyre!(
+                "invalid bit depth {:?} of image {}",
+                info.bit_depth,
+                path.as_ref().display()
+            ));
+        }
+        let source_format = match info.color_type {
+            png::ColorType::Grayscale => glow::RED,
+            png::ColorType::Rgb => glow::RGB,
+            png::ColorType::Indexed => glow::RED,
+            png::ColorType::GrayscaleAlpha => glow::RG,
+            png::ColorType::Rgba => glow::RGBA,
+        };
+
+        let bytes = &buf[..info.buffer_size()];
+
+        let texture = unsafe {
+            let texture =
+                gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                source_format as i32,
+                info.width as i32,
+                info.height as i32,
+                0,
+                source_format,
+                glow::UNSIGNED_BYTE,
+                Some(bytes),
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::LINEAR_MIPMAP_NEAREST as i32,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
+            gl.generate_mipmap(glow::TEXTURE_2D);
+            texture
+        };
+
+        let file_stem = path
+            .as_ref()
+            .file_stem()
+            .ok_or_else(|| eyre!("could not get file stem"))?
+            .to_string_lossy()
+            .into_owned();
+        self.textures.insert(file_stem, texture);
+
+        Ok(())
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Texture> {
+        self.textures.get(name)
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.textures.keys()
     }
 }
 

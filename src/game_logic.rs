@@ -22,7 +22,8 @@ use winit::window::{CursorGrabMode, Window};
 
 use crate::components::{CustomShader, Mesh, PointLight, Position, Scale, TransformBundle};
 use crate::resources::{
-    Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, Time, UiState, WinitWindow,
+    Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, TextureLoader, Time, UiState,
+    WinitWindow,
 };
 use crate::{renderer, systems, ui, WinitEvent};
 
@@ -44,7 +45,9 @@ pub fn run_game_loop(
     let mut world = World::new();
 
     let mut model_loader = ModelLoader::new();
-    model_loader.load_models_in_dir("obj")?;
+    model_loader.load_models_in_dir("res/models")?;
+    let mut texture_loader = TextureLoader::new();
+    texture_loader.load_textures_in_dir(&gl, "res/textures")?;
     world.spawn((
         Mesh::from_tobj_mesh(&gl, model_loader.get("Plane").unwrap()),
         TransformBundle {
@@ -61,13 +64,20 @@ pub fn run_game_loop(
         Mesh::from_tobj_mesh(&gl, model_loader.get("Cube").unwrap()),
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
-    world.spawn((PointLight::new(glm::vec3(1.0, 1.0, 1.0)), Position::new(0.0, 5.0, -15.0)));
+    world.spawn((
+        PointLight::new(
+            glm::vec3(0.2, 0.2, 0.2),
+            glm::vec3(1.0, 1.0, 1.0),
+            glm::vec3(1.0, 1.0, 1.0),
+        ),
+        Position::new(0.0, 5.0, -15.0),
+    ));
 
     let window_size = window.inner_size();
 
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(RenderSettings::new(&gl)?);
+    world.insert_resource(RenderSettings::new(&gl, *texture_loader.get("container2").unwrap())?);
     world.insert_resource(Camera::new(
         Camera::perspective(window_size.width, window_size.height),
         glm::vec3(0.0, 0.0, 0.0),

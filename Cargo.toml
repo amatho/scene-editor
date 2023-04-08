@@ -15,6 +15,7 @@ glow = "0.12"
 glutin = "0.30"
 glutin-winit = "0.3"
 nalgebra-glm = { version = "0.18", features = ["convert-bytemuck"] }
+png = "0.17.7"
 raw-window-handle = "0.5"
 tobj = "3.2"
 tracing = "0.1"

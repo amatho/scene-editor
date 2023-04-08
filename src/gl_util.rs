@@ -76,3 +76,8 @@ pub unsafe fn uniform_float(gl: &Context, program: Program, name: &str, value: f
     let loc = gl.get_uniform_location(program, name);
     gl.uniform_1_f32(loc.as_ref(), value);
 }
+
+pub unsafe fn uniform_int(gl: &Context, program: Program, name: &str, value: i32) {
+    let loc = gl.get_uniform_location(program, name);
+    gl.uniform_1_i32(loc.as_ref(), value);
+}

@@ -1367,6 +1367,7 @@ dependencies = [
  "glutin",
  "glutin-winit",
  "nalgebra-glm",
+ "png",
  "raw-window-handle",
  "tobj",
  "tracing",

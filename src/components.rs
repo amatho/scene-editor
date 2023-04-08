@@ -145,11 +145,13 @@ impl CustomShader {
 
 #[derive(Component)]
 pub struct PointLight {
-    pub color: glm::Vec3,
+    pub ambient: glm::Vec3,
+    pub diffuse: glm::Vec3,
+    pub specular: glm::Vec3,
 }
 
 impl PointLight {
-    pub fn new(color: glm::Vec3) -> Self {
-        Self { color }
+    pub fn new(ambient: glm::Vec3, diffuse: glm::Vec3, specular: glm::Vec3) -> Self {
+        Self { ambient, diffuse, specular }
     }
 }

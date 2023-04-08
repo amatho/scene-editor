@@ -10,7 +10,6 @@ mod ui;
 
 use std::cell::Cell;
 use std::ffi::CString;
-use std::sync::mpsc::SendError;
 use std::sync::{mpsc, Arc};
 use std::thread;
 
