@@ -1,43 +1,11 @@
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::Command;
 use glow::Context;
 use tracing::{debug, info, warn};
 
-use crate::components::{CustomShader, Mesh};
-use crate::resources::ModelLoader;
+use crate::components::CustomShader;
 use crate::shader::{ShaderBuilder, ShaderType};
-
-pub struct LoadMesh {
-    entity: Entity,
-    model_name: Cow<'static, str>,
-}
-
-impl LoadMesh {
-    pub fn new<T>(entity: Entity, model_name: T) -> Self
-    where
-        T: Into<Cow<'static, str>>,
-    {
-        Self { entity, model_name: model_name.into() }
-    }
-}
-
-impl Command for LoadMesh {
-    fn write(self, world: &mut World) {
-        let gl = world.non_send_resource::<Arc<Context>>().clone();
-        let model_loader = world.resource::<ModelLoader>();
-
-        if let Some(vao) = model_loader.get(&self.model_name) {
-            let mesh = Mesh::from(vao);
-            let mut entity_mut = world.entity_mut(self.entity);
-            entity_mut.insert(mesh);
-        } else {
-            warn!("could not load model {:?}", self.model_name);
-        }
-    }
-}
 
 /// Despawn an entity and destroy its OpenGL resources
 pub fn despawn_and_destroy(entity: Entity, world: &mut World) {

@@ -84,8 +84,6 @@ pub unsafe fn generate_attribute<T: Pod>(
     buffer
 }
 
-pub unsafe fn delete_vao(gl: &Context, vao: VertexArray, buffers: &[Buffer]) {}
-
 pub unsafe fn uniform_vec3(gl: &Context, program: Program, name: &str, value: &glm::Vec3) {
     let loc = gl.get_uniform_location(program, name);
     gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));

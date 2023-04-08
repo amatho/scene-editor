@@ -1,18 +1,21 @@
 use bevy_ecs::prelude::*;
+use tracing::warn;
 
-use crate::commands::{self, LoadMesh};
-use crate::components::{CustomShader, Mesh, Position, Rotation, Scale, Selected};
-use crate::resources::{EguiGlowRes, ModelLoader, UiState, WinitWindow};
+use crate::commands;
+use crate::components::{CustomShader, CustomTexture, Mesh, Position, Rotation, Scale, Selected};
+use crate::resources::{EguiGlowRes, ModelLoader, TextureLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
 type EntityQuery<'a> =
     (Entity, &'a mut Position, &'a mut Rotation, &'a mut Scale, Option<&'a mut CustomShader>);
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_ui(
     mut egui_glow: ResMut<EguiGlowRes>,
     window: Res<WinitWindow>,
     mut state: ResMut<UiState>,
     model_loader: Res<ModelLoader>,
+    texture_loader: Res<TextureLoader>,
     mut selected_entities: Query<EntityQuery, With<Selected>>,
     all_mesh_entities: Query<Entity, With<Mesh>>,
     mut commands: Commands,
@@ -131,8 +134,76 @@ pub fn run_ui(
 
                                 if ui.button("Load").clicked() {
                                     if let Some(ref name) = state.selected_model {
-                                        commands.add(LoadMesh::new(entity, name.to_owned()));
+                                        if let Some(vao) = model_loader.get(name) {
+                                            let mesh = Mesh::from(vao);
+                                            commands.entity(entity).insert(mesh);
+                                        } else {
+                                            warn!("could not load model {:?}", name);
+                                        }
                                     }
+                                }
+                            });
+                            ui.end_row();
+
+                            ui.label("Texture");
+                            ui.vertical(|ui| {
+                                egui::ComboBox::from_label("Diffuse")
+                                    .selected_text(match &state.selected_diffuse {
+                                        Some(name) => name,
+                                        None => "Default",
+                                    })
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(
+                                            &mut state.selected_diffuse,
+                                            None,
+                                            "Default",
+                                        );
+                                        for name in texture_loader.keys() {
+                                            ui.selectable_value(
+                                                &mut state.selected_diffuse,
+                                                Some(name.clone()),
+                                                name,
+                                            );
+                                        }
+                                    });
+
+                                egui::ComboBox::from_label("Specular")
+                                    .selected_text(match &state.selected_specular {
+                                        Some(name) => name,
+                                        None => "Default",
+                                    })
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(
+                                            &mut state.selected_specular,
+                                            None,
+                                            "Default",
+                                        );
+                                        for name in texture_loader.keys() {
+                                            ui.selectable_value(
+                                                &mut state.selected_specular,
+                                                Some(name.clone()),
+                                                name,
+                                            );
+                                        }
+                                    });
+
+                                if ui.button("Load").clicked() {
+                                    let mut ct = CustomTexture::default();
+                                    if let Some(ref name) = state.selected_diffuse {
+                                        if let Some(texture) = texture_loader.get(name) {
+                                            ct.diffuse = Some(*texture);
+                                        } else {
+                                            warn!("could not load texture {:?}", name);
+                                        }
+                                    }
+                                    if let Some(ref name) = state.selected_specular {
+                                        if let Some(texture) = texture_loader.get(name) {
+                                            ct.specular = Some(*texture);
+                                        } else {
+                                            warn!("could not load texture {:?}", name);
+                                        }
+                                    }
+                                    commands.entity(entity).insert(ct);
                                 }
                             });
                             ui.end_row();

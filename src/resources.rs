@@ -13,18 +13,19 @@ use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
-use crate::gl_util::{self, VertexArrayObject};
+use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Resource)]
 pub struct RenderSettings {
     pub default_shader: Shader,
     pub outline_shader: Shader,
-    pub default_texture: Texture,
+    pub default_diffuse: Texture,
+    pub default_specular: Texture,
 }
 
 impl RenderSettings {
-    pub fn new(gl: &Context, default_texture: Texture) -> Result<Self> {
+    pub fn new(gl: &Context) -> Result<Self> {
         let default_shader = ShaderBuilder::new(gl)
             .add_shader_source(crate::shader::DEFAULT_VERT, ShaderType::Vertex)?
             .add_shader_source(crate::shader::DEFAULT_FRAG, ShaderType::Fragment)?
@@ -35,9 +36,43 @@ impl RenderSettings {
             .add_shader_source(include_str!("../shaders/outline_frag.glsl"), ShaderType::Fragment)?
             .link()?;
 
-        // TODO: Re-add default texture
+        let default_diffuse = unsafe {
+            let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+            let pixels: [u8; 4] = [229, 229, 229, 255];
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                1,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&pixels),
+            );
+            tex
+        };
 
-        Ok(Self { default_shader, outline_shader, default_texture })
+        let default_specular = unsafe {
+            let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(tex));
+            let pixels: [u8; 4] = [255, 255, 255, 255];
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                1,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&pixels),
+            );
+            tex
+        };
+
+        Ok(Self { default_shader, outline_shader, default_diffuse, default_specular })
     }
 }
 
@@ -70,7 +105,7 @@ impl Camera {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct UiState {
     pub width: u32,
     pub height: u32,
@@ -78,17 +113,15 @@ pub struct UiState {
     pub utilities_open: bool,
     pub editing_mode: Option<ShaderType>,
     pub selected_model: Option<String>,
+    pub selected_diffuse: Option<String>,
+    pub selected_specular: Option<String>,
 }
 
 impl UiState {
     pub fn new(window: &Window) -> Self {
         let (width, height) = window.inner_size().into();
-        let camera_focused = false;
-        let utilities_open = false;
-        let editing_mode = None;
-        let selected_model = None;
 
-        Self { width, height, camera_focused, utilities_open, editing_mode, selected_model }
+        Self { width, height, ..Default::default() }
     }
 }
 
@@ -195,6 +228,7 @@ impl ModelLoader {
     }
 }
 
+#[derive(Resource)]
 pub struct TextureLoader {
     textures: HashMap<String, glow::Texture>,
 }

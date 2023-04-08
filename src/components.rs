@@ -1,10 +1,9 @@
 use bevy_ecs::prelude::*;
 use color_eyre::Result;
-use glow::{Buffer, Context, VertexArray};
+use glow::{Context, Texture, VertexArray};
 use nalgebra_glm as glm;
-use tracing::warn;
 
-use crate::gl_util::{self, VertexArrayObject};
+use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Component, Default, Debug, Copy, Clone)]
@@ -113,6 +112,12 @@ impl CustomShader {
 
         Self { shader, vert_source, frag_source }
     }
+}
+
+#[derive(Component, Default, Copy, Clone)]
+pub struct CustomTexture {
+    pub diffuse: Option<Texture>,
+    pub specular: Option<Texture>,
 }
 
 #[derive(Component)]

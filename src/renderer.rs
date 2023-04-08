@@ -5,7 +5,7 @@ use glow::{Context, HasContext};
 use nalgebra_glm as glm;
 
 use crate::components::{
-    CustomShader, Mesh, PointLight, Position, Rotation, Scale, Selected, StencilId,
+    CustomShader, CustomTexture, Mesh, PointLight, Position, Rotation, Scale, Selected, StencilId,
 };
 use crate::gl_util;
 use crate::resources::{Camera, RenderSettings};
@@ -18,6 +18,7 @@ type GeometryQuery<'a> = (
     &'a Scale,
     Option<&'a Selected>,
     Option<&'a CustomShader>,
+    Option<&'a CustomTexture>,
 );
 
 pub fn render(
@@ -43,18 +44,12 @@ pub fn render(
 
         gl.enable(glow::STENCIL_TEST);
         gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
-
-        // TODO: Move this down to object rendering and support custom texture
-        gl.active_texture(glow::TEXTURE0);
-        gl.bind_texture(glow::TEXTURE_2D, Some(render_settings.default_texture));
-        gl.active_texture(glow::TEXTURE1);
-        gl.bind_texture(glow::TEXTURE_2D, Some(render_settings.default_texture));
     }
 
     let vp =
         camera.projection * glm::look_at(&camera.pos, &(camera.pos + camera.front), &camera.up);
 
-    for (i, (entity, mesh, &pos, &rot, &scale, selected, custom_shader)) in
+    for (i, (entity, mesh, &pos, &rot, &scale, selected, custom_shader, custom_texture)) in
         geometry.iter().enumerate()
     {
         let model = glm::translation(&pos.into())
@@ -67,6 +62,14 @@ pub fn render(
         let id = i + 1;
 
         unsafe {
+            let texture = custom_texture.copied().unwrap_or_default();
+            let diffuse = texture.diffuse.unwrap_or(render_settings.default_diffuse);
+            let specular = texture.specular.unwrap_or(render_settings.default_specular);
+            gl.active_texture(glow::TEXTURE0);
+            gl.bind_texture(glow::TEXTURE_2D, Some(diffuse));
+            gl.active_texture(glow::TEXTURE1);
+            gl.bind_texture(glow::TEXTURE_2D, Some(specular));
+
             let shader = if let Some(CustomShader { shader: Ok(shader), .. }) = custom_shader {
                 shader
             } else {

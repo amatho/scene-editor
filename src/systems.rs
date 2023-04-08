@@ -6,9 +6,8 @@ use nalgebra_glm as glm;
 use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
-use crate::commands::LoadMesh;
-use crate::components::{Position, Selected, StencilId, TransformBundle};
-use crate::resources::{Camera, Input, Time, UiState};
+use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};
+use crate::resources::{Camera, Input, ModelLoader, Time, UiState};
 
 pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -56,6 +55,7 @@ pub fn spawn_object(
     camera: Res<Camera>,
     input: Res<Input>,
     ui_state: Res<UiState>,
+    model_loader: Res<ModelLoader>,
     mut commands: Commands,
 ) {
     if (ui_state.camera_focused && input.get_mouse_button_press(MouseButton::Left))
@@ -66,8 +66,8 @@ pub fn spawn_object(
 
         debug!("spawning a cube at {:?}", position);
 
-        let entity = commands.spawn((TransformBundle { position, ..Default::default() },)).id();
-        commands.add(LoadMesh::new(entity, "Cube"));
+        let mesh = Mesh::from(model_loader.get("Cube").unwrap());
+        commands.spawn((mesh, TransformBundle { position, ..Default::default() }));
     }
 }
 

@@ -77,7 +77,7 @@ pub fn run_game_loop(
 
     // Make sure systems using OpenGL runs on the main thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(RenderSettings::new(&gl, *texture_loader.get("container2").unwrap())?);
+    world.insert_resource(RenderSettings::new(&gl)?);
     world.insert_resource(Camera::new(
         Camera::perspective(window_size.width, window_size.height),
         glm::vec3(0.0, 0.0, 0.0),
@@ -87,6 +87,7 @@ pub fn run_game_loop(
         0.0,
     ));
     world.insert_resource(model_loader);
+    world.insert_resource(texture_loader);
     world.insert_resource(EguiGlowRes::new(egui_glow));
     world.insert_resource(WinitWindow::new(window.clone()));
     world.insert_resource(UiState::new(&window));
