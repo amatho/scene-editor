@@ -4,7 +4,7 @@ use glow::{Buffer, Context, VertexArray};
 use nalgebra_glm as glm;
 use tracing::warn;
 
-use crate::gl_util;
+use crate::gl_util::{self, VertexArrayObject};
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Component, Default, Debug, Copy, Clone)]
@@ -74,43 +74,15 @@ pub struct TransformBundle {
 
 #[derive(Component)]
 pub struct Mesh {
-    pub vao: VertexArray,
-    pub num_indices: usize,
-    pub buffers: Vec<Buffer>,
-    destroyed: bool,
+    pub vao_id: VertexArray,
+    pub indices_len: usize,
 }
 
-impl Mesh {
-    pub fn from_tobj_mesh(gl: &Context, tobj_mesh: &tobj::Mesh) -> Self {
-        let (vao, buffers) = unsafe {
-            gl_util::create_vao(
-                gl,
-                bytemuck::cast_slice(&tobj_mesh.positions),
-                &tobj_mesh.indices,
-                bytemuck::cast_slice(&tobj_mesh.normals),
-                bytemuck::cast_slice(&tobj_mesh.texcoords),
-            )
-        };
-        let num_indices = tobj_mesh.indices.len();
-        let buffers = buffers.to_vec();
-        let destroyed = false;
-        Self { vao, num_indices, buffers, destroyed }
-    }
-
-    /// # Safety
-    ///
-    /// The VAO and buffers of this mesh are no longer valid and should not be used.
-    pub unsafe fn destroy(&mut self, gl: &Context) {
-        gl_util::delete_vao(gl, self.vao, &self.buffers);
-        self.destroyed = true;
-    }
-}
-
-impl Drop for Mesh {
-    fn drop(&mut self) {
-        if !self.destroyed {
-            warn!("mesh was not destroyed (VAO: {:?})", self.vao);
-        }
+impl From<&VertexArrayObject> for Mesh {
+    fn from(vao: &VertexArrayObject) -> Self {
+        let vao_id = vao.vao_id;
+        let indices_len = vao.indices_len;
+        Self { vao_id, indices_len }
     }
 }
 

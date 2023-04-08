@@ -89,8 +89,8 @@ pub fn render(
             gl_util::uniform_vec3(&gl, shader.program, "light.specular", &light.specular);
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
-            gl.bind_vertex_array(Some(mesh.vao));
-            gl.draw_elements(glow::TRIANGLES, mesh.num_indices as i32, glow::UNSIGNED_INT, 0);
+            gl.bind_vertex_array(Some(mesh.vao_id));
+            gl.draw_elements(glow::TRIANGLES, mesh.indices_len as i32, glow::UNSIGNED_INT, 0);
 
             if selected.is_some() {
                 // Redraw the object in bigger scale, with stencil testing and outline shader
@@ -110,7 +110,7 @@ pub fn render(
                 gl.stencil_mask(0x00);
                 // Pass if the fragment does not overlap with the object we're highlighting
                 gl.stencil_func(glow::NOTEQUAL, id as i32, 0xFF);
-                gl.draw_elements(glow::TRIANGLES, mesh.num_indices as i32, glow::UNSIGNED_INT, 0);
+                gl.draw_elements(glow::TRIANGLES, mesh.indices_len as i32, glow::UNSIGNED_INT, 0);
                 // Re-enable writing to the stencil buffer
                 gl.stencil_mask(0xFF);
             }

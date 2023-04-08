@@ -3,6 +3,57 @@ use std::mem;
 use bytemuck::Pod;
 use glow::{Buffer, Context, HasContext, Program, VertexArray};
 use nalgebra_glm as glm;
+use tracing::warn;
+
+#[derive(Clone)]
+pub struct VertexArrayObject {
+    pub vao_id: VertexArray,
+    pub indices_len: usize,
+    buffers: Box<[Buffer]>,
+    destroyed: bool,
+}
+
+impl VertexArrayObject {
+    pub unsafe fn new(
+        gl: &Context,
+        vertices: &[glm::Vec3],
+        indices: &[u32],
+        normals: &[glm::Vec3],
+        texture_coords: &[glm::Vec2],
+    ) -> Self {
+        let vao_id = gl.create_vertex_array().unwrap();
+        gl.bind_vertex_array(Some(vao_id));
+
+        let vert_buf = generate_attribute(gl, 0, 3, vertices, false);
+        let normal_buf = generate_attribute(gl, 1, 3, normals, false);
+        let tex_buf = generate_attribute(gl, 2, 2, texture_coords, false);
+        let indices_buf = buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
+
+        let indices_len = indices.len();
+        let buffers = Box::new([vert_buf, normal_buf, tex_buf, indices_buf]);
+        Self { vao_id, indices_len, buffers, destroyed: false }
+    }
+
+    /// # Safety
+    ///
+    /// The VAO and buffers are no longer valid and should not be used.
+    pub unsafe fn destroy(&mut self, gl: &Context) {
+        for buf in self.buffers.iter() {
+            gl.delete_buffer(*buf);
+        }
+        gl.delete_vertex_array(self.vao_id);
+
+        self.destroyed = true;
+    }
+}
+
+impl Drop for VertexArrayObject {
+    fn drop(&mut self) {
+        if !self.destroyed {
+            warn!("vertex array object was not destroyed (VAO: {:?})", self.vao_id);
+        }
+    }
+}
 
 unsafe fn buffer_with_data<T: Pod>(gl: &Context, target: u32, data: &[T]) -> Buffer {
     let buffer = gl.create_buffer().unwrap();
@@ -33,34 +84,7 @@ pub unsafe fn generate_attribute<T: Pod>(
     buffer
 }
 
-pub unsafe fn create_vao(
-    gl: &Context,
-    vertices: &[glm::Vec3],
-    indices: &[u32],
-    normals: &[glm::Vec3],
-    texture_coords: &[glm::Vec2],
-) -> (VertexArray, [Buffer; 4]) {
-    let vao = gl.create_vertex_array().unwrap();
-    gl.bind_vertex_array(Some(vao));
-
-    let vert_buf = generate_attribute(gl, 0, 3, vertices, false);
-
-    let normal_buf = generate_attribute(gl, 1, 3, normals, false);
-
-    let tex_buf = generate_attribute(gl, 2, 2, texture_coords, false);
-
-    let indices_buf = buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
-
-    (vao, [vert_buf, normal_buf, tex_buf, indices_buf])
-}
-
-pub unsafe fn delete_vao(gl: &Context, vao: VertexArray, buffers: &[Buffer]) {
-    gl.bind_vertex_array(Some(vao));
-    for buf in buffers {
-        gl.delete_buffer(*buf);
-    }
-    gl.delete_vertex_array(vao);
-}
+pub unsafe fn delete_vao(gl: &Context, vao: VertexArray, buffers: &[Buffer]) {}
 
 pub unsafe fn uniform_vec3(gl: &Context, program: Program, name: &str, value: &glm::Vec3) {
     let loc = gl.get_uniform_location(program, name);

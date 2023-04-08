@@ -29,19 +29,9 @@ impl Command for LoadMesh {
         let gl = world.non_send_resource::<Arc<Context>>().clone();
         let model_loader = world.resource::<ModelLoader>();
 
-        if let Some(tobj_mesh) = model_loader.get(&self.model_name) {
-            let mesh = Mesh::from_tobj_mesh(&gl, tobj_mesh);
+        if let Some(vao) = model_loader.get(&self.model_name) {
+            let mesh = Mesh::from(vao);
             let mut entity_mut = world.entity_mut(self.entity);
-
-            // Clean up after old mesh
-            if let Some(mut mesh) = entity_mut.get_mut::<Mesh>() {
-                unsafe {
-                    mesh.destroy(&gl);
-                }
-
-                entity_mut.remove::<Mesh>();
-            }
-
             entity_mut.insert(mesh);
         } else {
             warn!("could not load model {:?}", self.model_name);
@@ -52,11 +42,6 @@ impl Command for LoadMesh {
 /// Despawn an entity and destroy its OpenGL resources
 pub fn despawn_and_destroy(entity: Entity, world: &mut World) {
     let gl = world.non_send_resource::<Arc<Context>>().clone();
-    if let Some(mut mesh) = world.entity_mut(entity).get_mut::<Mesh>() {
-        unsafe {
-            mesh.destroy(&gl);
-        }
-    }
     if let Some(mut cs) = world.entity_mut(entity).get_mut::<CustomShader>() {
         if let Ok(ref mut shader) = cs.shader {
             unsafe {

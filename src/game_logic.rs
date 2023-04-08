@@ -45,11 +45,11 @@ pub fn run_game_loop(
     let mut world = World::new();
 
     let mut model_loader = ModelLoader::new();
-    model_loader.load_models_in_dir("res/models")?;
+    model_loader.load_models_in_dir(&gl, "res/models")?;
     let mut texture_loader = TextureLoader::new();
     texture_loader.load_textures_in_dir(&gl, "res/textures")?;
     world.spawn((
-        Mesh::from_tobj_mesh(&gl, model_loader.get("Plane").unwrap()),
+        Mesh::from(model_loader.get("Plane").unwrap()),
         TransformBundle {
             position: Position::new(0.0, -2.0, -15.0),
             scale: Scale::new(10.0, 1.0, 10.0),
@@ -57,11 +57,11 @@ pub fn run_game_loop(
         },
     ));
     world.spawn((
-        Mesh::from_tobj_mesh(&gl, model_loader.get("Cube").unwrap()),
+        Mesh::from(model_loader.get("Cube").unwrap()),
         TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
-        Mesh::from_tobj_mesh(&gl, model_loader.get("Cube").unwrap()),
+        Mesh::from(model_loader.get("Cube").unwrap()),
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
@@ -232,10 +232,9 @@ fn cleanup(world: &mut World) {
 
     let gl = world.non_send_resource::<Arc<Context>>().clone();
 
-    let mut query = world.query::<&mut Mesh>();
-    for mut mesh in query.iter_mut(world) {
+    for vao in world.resource_mut::<ModelLoader>().values_mut() {
         unsafe {
-            mesh.destroy(&gl);
+            vao.destroy(&gl);
         }
     }
 

@@ -13,6 +13,7 @@ use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
 
+use crate::gl_util::{self, VertexArrayObject};
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Resource)]
@@ -33,6 +34,8 @@ impl RenderSettings {
             .add_shader_source(include_str!("../shaders/outline_vert.glsl"), ShaderType::Vertex)?
             .add_shader_source(include_str!("../shaders/outline_frag.glsl"), ShaderType::Fragment)?
             .link()?;
+
+        // TODO: Re-add default texture
 
         Ok(Self { default_shader, outline_shader, default_texture })
     }
@@ -141,7 +144,7 @@ impl std::ops::Deref for WinitWindow {
 
 #[derive(Resource)]
 pub struct ModelLoader {
-    models: HashMap<String, tobj::Mesh>,
+    models: HashMap<String, VertexArrayObject>,
 }
 
 impl ModelLoader {
@@ -149,34 +152,46 @@ impl ModelLoader {
         Self { models: HashMap::new() }
     }
 
-    pub fn load_models_in_dir<P>(&mut self, path: P) -> Result<()>
+    pub fn load_models_in_dir<P>(&mut self, gl: &Context, path: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
         for entry in path.as_ref().read_dir()? {
             let entry = entry?;
-            self.load_model(entry.path())?;
+            self.load_model(gl, entry.path())?;
         }
 
         Ok(())
     }
 
-    pub fn load_model<P>(&mut self, path: P) -> Result<()>
+    pub fn load_model<P>(&mut self, gl: &Context, path: P) -> Result<()>
     where
         P: AsRef<Path> + fmt::Debug,
     {
         let (models, _) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
         let model = models.into_iter().next().ok_or_else(|| eyre!("OBJ had no models"))?;
-        self.models.insert(model.name, model.mesh);
+
+        let vertices = bytemuck::cast_slice(&model.mesh.positions);
+        let indices = &model.mesh.indices;
+        let normals = bytemuck::cast_slice(&model.mesh.normals);
+        let texture_coords = bytemuck::cast_slice(&model.mesh.texcoords);
+        let vao = unsafe { VertexArrayObject::new(gl, vertices, indices, normals, texture_coords) };
+
+        self.models.insert(model.name, vao);
+
         Ok(())
     }
 
-    pub fn get(&self, name: &str) -> Option<&tobj::Mesh> {
+    pub fn get(&self, name: &str) -> Option<&VertexArrayObject> {
         self.models.get(name)
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.models.keys()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut VertexArrayObject> {
+        self.models.values_mut()
     }
 }
 
