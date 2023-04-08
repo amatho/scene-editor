@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use bevy_ecs::system::Resource;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -177,12 +177,12 @@ impl std::ops::Deref for WinitWindow {
 
 #[derive(Resource)]
 pub struct ModelLoader {
-    models: HashMap<String, VertexArrayObject>,
+    models: AHashMap<String, VertexArrayObject>,
 }
 
 impl ModelLoader {
     pub fn new() -> Self {
-        Self { models: HashMap::new() }
+        Self { models: AHashMap::new() }
     }
 
     pub fn load_models_in_dir<P>(&mut self, gl: &Context, path: P) -> Result<()>
@@ -230,12 +230,12 @@ impl ModelLoader {
 
 #[derive(Resource)]
 pub struct TextureLoader {
-    textures: HashMap<String, glow::Texture>,
+    textures: AHashMap<String, glow::Texture>,
 }
 
 impl TextureLoader {
     pub fn new() -> Self {
-        Self { textures: HashMap::new() }
+        Self { textures: AHashMap::new() }
     }
 
     pub fn load_textures_in_dir<P>(&mut self, gl: &Context, path: P) -> Result<()>
@@ -328,10 +328,10 @@ pub struct Time {
 
 #[derive(Resource, Default)]
 pub struct Input {
-    keys: HashMap<VirtualKeyCode, HeldState>,
+    keys: AHashMap<VirtualKeyCode, HeldState>,
     pub mouse_delta: (f64, f64),
     pub mouse_pos: (f64, f64),
-    mouse_buttons: HashMap<MouseButton, HeldState>,
+    mouse_buttons: AHashMap<MouseButton, HeldState>,
 }
 
 enum HeldState {

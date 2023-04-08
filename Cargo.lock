@@ -1358,6 +1358,7 @@ dependencies = [
 name = "scene-editor"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.8.3",
  "bevy_ecs",
  "bytemuck",
  "color-eyre",
