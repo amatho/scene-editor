@@ -35,7 +35,8 @@ struct PointLight {
 uniform vec3 viewPos;
 uniform Material material;
 uniform DirLight dirLight;
-uniform PointLight pointLight;
+#define NUM_POINT_LIGHTS 1
+uniform PointLight pointLights[NUM_POINT_LIGHTS];
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir);
@@ -46,7 +47,10 @@ void main() {
     vec3 result = vec3(0.0);
 
     result += CalculateDirLight(dirLight, norm, viewDir);
-    result += CalculatePointLight(pointLight, norm, viewDir);
+
+    for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+        result += CalculatePointLight(pointLights[i], norm, viewDir);
+    }
 
     FragColor = vec4(result, 1.0);
 }

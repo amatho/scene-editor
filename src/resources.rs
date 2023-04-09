@@ -57,7 +57,7 @@ impl RenderSettings {
         let default_specular = unsafe {
             let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
             gl.bind_texture(glow::TEXTURE_2D, Some(tex));
-            let pixels: [u8; 4] = [255, 255, 255, 255];
+            let pixels: [u8; 4] = [0; 4];
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
@@ -259,19 +259,30 @@ impl TextureLoader {
         let mut buf = vec![0; reader.output_buffer_size()];
         let info = reader.next_frame(&mut buf)?;
 
-        if info.bit_depth != png::BitDepth::Eight {
-            return Err(eyre!(
-                "invalid bit depth {:?} of image {}",
-                info.bit_depth,
-                path.as_ref().display()
-            ));
-        }
-        let source_format = match info.color_type {
-            png::ColorType::Grayscale => glow::RED,
-            png::ColorType::Rgb => glow::RGB,
-            png::ColorType::Indexed => glow::RED,
-            png::ColorType::GrayscaleAlpha => glow::RG,
-            png::ColorType::Rgba => glow::RGBA,
+        let (source_format, source_type) = match (info.color_type, info.bit_depth) {
+            (png::ColorType::Indexed, png::BitDepth::Eight) => (glow::RED, glow::UNSIGNED_BYTE),
+            (png::ColorType::Indexed, png::BitDepth::Sixteen) => (glow::RED, glow::UNSIGNED_SHORT),
+            (png::ColorType::Grayscale, png::BitDepth::Eight) => (glow::RED, glow::UNSIGNED_BYTE),
+            (png::ColorType::Grayscale, png::BitDepth::Sixteen) => {
+                (glow::RED, glow::UNSIGNED_SHORT)
+            }
+            (png::ColorType::GrayscaleAlpha, png::BitDepth::Eight) => {
+                (glow::RG, glow::UNSIGNED_BYTE)
+            }
+            (png::ColorType::GrayscaleAlpha, png::BitDepth::Sixteen) => {
+                (glow::RG, glow::UNSIGNED_SHORT)
+            }
+            (png::ColorType::Rgb, png::BitDepth::Eight) => (glow::RGB, glow::UNSIGNED_BYTE),
+            (png::ColorType::Rgb, png::BitDepth::Sixteen) => (glow::RGB, glow::UNSIGNED_SHORT),
+            (png::ColorType::Rgba, png::BitDepth::Eight) => (glow::RGBA, glow::UNSIGNED_BYTE),
+            (png::ColorType::Rgba, png::BitDepth::Sixteen) => (glow::RGBA, glow::UNSIGNED_SHORT),
+            _ => {
+                return Err(eyre!(
+                    "invalid bit depth {:?} of image {}",
+                    info.bit_depth,
+                    path.as_ref().display()
+                ));
+            }
         };
 
         let bytes = &buf[..info.buffer_size()];
@@ -280,15 +291,19 @@ impl TextureLoader {
             let texture =
                 gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            // Make OpenGL not care about alignment
+            gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+            // `png` uses big-endian so we want OpenGL to swap them to get the correct layout
+            gl.pixel_store_bool(glow::UNPACK_SWAP_BYTES, true);
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                source_format as i32,
+                glow::RGBA as i32,
                 info.width as i32,
                 info.height as i32,
                 0,
                 source_format,
-                glow::UNSIGNED_BYTE,
+                source_type,
                 Some(bytes),
             );
             gl.tex_parameter_i32(

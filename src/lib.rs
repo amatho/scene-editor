@@ -58,9 +58,6 @@ pub fn run() -> Result<()> {
         info!("Renderer: {}", gl.get_parameter_string(glow::RENDERER));
         info!("OpenGL Version: {}", gl.get_parameter_string(glow::VERSION));
         info!("GLSL Version: {}", gl.get_parameter_string(glow::SHADING_LANGUAGE_VERSION));
-
-        gl.enable(glow::BLEND);
-        gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
     }
 
     let egui_glow = EguiGlow::new(&event_loop, gl.clone(), None);

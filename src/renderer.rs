@@ -32,6 +32,9 @@ pub fn render(
     unsafe {
         // Enable various features.
         // Some are disabled by egui_glow, and need to be enabled each time we render.
+        gl.enable(glow::BLEND);
+        gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+
         gl.enable(glow::DEPTH_TEST);
         gl.depth_func(glow::LESS);
 
@@ -112,13 +115,23 @@ pub fn render(
             );
 
             let (light, &light_pos) = lights.single();
-            gl_util::uniform_vec3(&gl, shader.program, "pointLight.position", &light_pos.into());
-            gl_util::uniform_vec3(&gl, shader.program, "pointLight.ambient", &light.ambient);
-            gl_util::uniform_vec3(&gl, shader.program, "pointLight.diffuse", &light.diffuse);
-            gl_util::uniform_vec3(&gl, shader.program, "pointLight.specular", &light.specular);
-            gl_util::uniform_float(&gl, shader.program, "pointLight.constant", light.constant);
-            gl_util::uniform_float(&gl, shader.program, "pointLight.linear", light.linear);
-            gl_util::uniform_float(&gl, shader.program, "pointLight.quadratic", light.quadratic);
+            gl_util::uniform_vec3(
+                &gl,
+                shader.program,
+                "pointLights[0].position",
+                &light_pos.into(),
+            );
+            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].ambient", &light.ambient);
+            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].diffuse", &light.diffuse);
+            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].specular", &light.specular);
+            gl_util::uniform_float(&gl, shader.program, "pointLights[0].constant", light.constant);
+            gl_util::uniform_float(&gl, shader.program, "pointLights[0].linear", light.linear);
+            gl_util::uniform_float(
+                &gl,
+                shader.program,
+                "pointLights[0].quadratic",
+                light.quadratic,
+            );
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
             gl.bind_vertex_array(Some(mesh.vao_id));
