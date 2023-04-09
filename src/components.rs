@@ -125,10 +125,20 @@ pub struct PointLight {
     pub ambient: glm::Vec3,
     pub diffuse: glm::Vec3,
     pub specular: glm::Vec3,
+    pub constant: f32,
+    pub linear: f32,
+    pub quadratic: f32,
 }
 
 impl PointLight {
-    pub fn new(ambient: glm::Vec3, diffuse: glm::Vec3, specular: glm::Vec3) -> Self {
-        Self { ambient, diffuse, specular }
+    pub fn new(
+        ambient: glm::Vec3,
+        diffuse: glm::Vec3,
+        specular: glm::Vec3,
+        constant: f32,
+        linear: f32,
+        quadratic: f32,
+    ) -> Self {
+        Self { ambient, diffuse, specular, constant, linear, quadratic }
     }
 }
