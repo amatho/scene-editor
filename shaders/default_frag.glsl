@@ -43,12 +43,12 @@ vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir);
 void main() {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 output = vec3(0.0);
+    vec3 result = vec3(0.0);
 
-    output += CalculateDirLight(dirLight, norm, viewDir);
-    output += CalculatePointLight(pointLight, norm, viewDir);
+    result += CalculateDirLight(dirLight, norm, viewDir);
+    result += CalculatePointLight(pointLight, norm, viewDir);
 
-    FragColor = vec4(output, 1.0);
+    FragColor = vec4(result, 1.0);
 }
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir) {
