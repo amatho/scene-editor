@@ -61,10 +61,7 @@ pub fn run_game_loop(
         TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
     ));
     world.spawn((
-        Mesh::from(model_loader.get("Cube").unwrap()),
-        TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
-    ));
-    world.spawn((
+        Mesh::from(model_loader.get("Sphere").unwrap()),
         PointLight::new(
             glm::vec3(0.2, 0.2, 0.2),
             glm::vec3(1.0, 1.0, 1.0),
@@ -73,7 +70,7 @@ pub fn run_game_loop(
             0.09,
             0.032,
         ),
-        Position::new(0.0, 5.0, -15.0),
+        TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
 
     let window_size = window.inner_size();

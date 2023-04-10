@@ -35,8 +35,9 @@ struct PointLight {
 uniform vec3 viewPos;
 uniform Material material;
 uniform DirLight dirLight;
-#define NUM_POINT_LIGHTS 1
-uniform PointLight pointLights[NUM_POINT_LIGHTS];
+#define MAX_POINT_LIGHTS 128
+uniform int pointLightsSize;
+uniform PointLight pointLights[MAX_POINT_LIGHTS];
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir);
@@ -48,7 +49,7 @@ void main() {
 
     result += CalculateDirLight(dirLight, norm, viewDir);
 
-    for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+    for (int i = 0; i < pointLightsSize; i++) {
         result += CalculatePointLight(pointLights[i], norm, viewDir);
     }
 

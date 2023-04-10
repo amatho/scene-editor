@@ -114,24 +114,54 @@ pub fn render(
                 &glm::vec3(1.0, 1.0, 1.0),
             );
 
-            let (light, &light_pos) = lights.single();
-            gl_util::uniform_vec3(
-                &gl,
-                shader.program,
-                "pointLights[0].position",
-                &light_pos.into(),
-            );
-            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].ambient", &light.ambient);
-            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].diffuse", &light.diffuse);
-            gl_util::uniform_vec3(&gl, shader.program, "pointLights[0].specular", &light.specular);
-            gl_util::uniform_float(&gl, shader.program, "pointLights[0].constant", light.constant);
-            gl_util::uniform_float(&gl, shader.program, "pointLights[0].linear", light.linear);
-            gl_util::uniform_float(
-                &gl,
-                shader.program,
-                "pointLights[0].quadratic",
-                light.quadratic,
-            );
+            let lights_iter = lights.iter();
+            let lights_len = lights_iter.len();
+            for (i, (light, &light_pos)) in lights_iter.enumerate() {
+                gl_util::uniform_vec3(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].position"),
+                    &light_pos.into(),
+                );
+                gl_util::uniform_vec3(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].ambient"),
+                    &light.ambient,
+                );
+                gl_util::uniform_vec3(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].diffuse"),
+                    &light.diffuse,
+                );
+                gl_util::uniform_vec3(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].specular"),
+                    &light.specular,
+                );
+                gl_util::uniform_float(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].constant"),
+                    light.constant,
+                );
+                gl_util::uniform_float(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].linear"),
+                    light.linear,
+                );
+                gl_util::uniform_float(
+                    &gl,
+                    shader.program,
+                    &format!("pointLights[{i}].quadratic"),
+                    light.quadratic,
+                );
+            }
+
+            gl_util::uniform_int(&gl, shader.program, "pointLightsSize", lights_len as i32);
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
             gl.bind_vertex_array(Some(mesh.vao_id));
