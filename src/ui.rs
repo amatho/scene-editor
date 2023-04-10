@@ -1,13 +1,22 @@
 use bevy_ecs::prelude::*;
+use nalgebra_glm as glm;
 use tracing::warn;
 
 use crate::commands;
-use crate::components::{CustomShader, CustomTexture, Mesh, Position, Rotation, Scale, Selected};
+use crate::components::{
+    CustomShader, CustomTexture, Mesh, PointLight, Position, Rotation, Scale, Selected,
+};
 use crate::resources::{EguiGlowRes, ModelLoader, TextureLoader, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
-type EntityQuery<'a> =
-    (Entity, &'a mut Position, &'a mut Rotation, &'a mut Scale, Option<&'a mut CustomShader>);
+type EntityQuery<'a> = (
+    Entity,
+    &'a mut Position,
+    &'a mut Rotation,
+    &'a mut Scale,
+    Option<&'a mut CustomShader>,
+    Option<&'a PointLight>,
+);
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_ui(
@@ -51,7 +60,7 @@ pub fn run_ui(
                     ctx,
                     selected.is_ok(),
                     |ui| {
-                        let Ok((entity, mut pos, mut rotation, mut scale, _)) = selected else {
+                        let Ok((entity, mut pos, mut rotation, mut scale, _, point_light)) = selected else {
                             unreachable!();
                         };
 
@@ -208,6 +217,26 @@ pub fn run_ui(
                             });
                             ui.end_row();
 
+                            ui.label("Light");
+                            ui.horizontal(|ui| {
+                                let mut checked = point_light.is_some();
+                                if ui.checkbox(&mut checked, "Point Light").changed() {
+                                    if checked {
+                                        commands.entity(entity).insert(PointLight::new(
+                                            glm::vec3(0.2, 0.2, 0.2),
+                                            glm::vec3(1.0, 1.0, 1.0),
+                                            glm::vec3(1.0, 1.0, 1.0),
+                                            1.0,
+                                            0.09,
+                                            0.032,
+                                        ));
+                                    } else {
+                                        commands.entity(entity).remove::<PointLight>();
+                                    }
+                                }
+                            });
+                            ui.end_row();
+
                             ui.label("Commands");
                             if ui.button("Despawn").clicked() {
                                 commands.entity(entity).add(commands::despawn_and_destroy);
@@ -218,7 +247,7 @@ pub fn run_ui(
                 );
             }
             Some(editing_mode) => {
-                if let Ok((entity, _, _, _, custom_shader)) = selected {
+                if let Ok((entity, _, _, _, custom_shader, _)) = selected {
                     match custom_shader {
                         Some(mut cs) => {
                             egui::CentralPanel::default().show(ctx, |ui| {
