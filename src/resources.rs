@@ -2,9 +2,11 @@ use std::fmt;
 use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use ahash::AHashMap;
 use bevy_ecs::system::Resource;
+use bevy_ecs::world::{FromWorld, World};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use egui_glow::EguiGlow;
@@ -76,7 +78,14 @@ impl RenderSettings {
     }
 }
 
-#[derive(Resource, Default)]
+impl FromWorld for RenderSettings {
+    fn from_world(world: &mut World) -> Self {
+        let gl = world.non_send_resource::<Arc<Context>>();
+        Self::new(gl).unwrap()
+    }
+}
+
+#[derive(Resource)]
 pub struct Camera {
     pub projection: glm::Mat4,
 
@@ -105,12 +114,28 @@ impl Camera {
     }
 }
 
-#[derive(Resource, Default)]
+impl FromWorld for Camera {
+    fn from_world(world: &mut World) -> Self {
+        let size = world.resource::<WinitWindow>().inner_size();
+        let projection = Self::perspective(size.width, size.height);
+        Self::new(
+            projection,
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, -1.0),
+            glm::vec3(0.0, 1.0, 0.0),
+            -90.0,
+            0.0,
+        )
+    }
+}
+
+#[derive(Resource)]
 pub struct UiState {
     pub width: u32,
     pub height: u32,
     pub camera_focused: bool,
     pub utilities_open: bool,
+    pub performance_open: bool,
     pub editing_mode: Option<ShaderType>,
     pub selected_model: Option<String>,
     pub selected_diffuse: Option<String>,
@@ -121,7 +146,24 @@ impl UiState {
     pub fn new(window: &Window) -> Self {
         let (width, height) = window.inner_size().into();
 
-        Self { width, height, ..Default::default() }
+        Self {
+            width,
+            height,
+            camera_focused: false,
+            utilities_open: false,
+            performance_open: false,
+            editing_mode: None,
+            selected_model: None,
+            selected_diffuse: None,
+            selected_specular: None,
+        }
+    }
+}
+
+impl FromWorld for UiState {
+    fn from_world(world: &mut World) -> Self {
+        let window = world.resource::<WinitWindow>();
+        Self::new(window)
     }
 }
 
@@ -336,9 +378,53 @@ impl TextureLoader {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct Time {
-    pub delta_time: f32,
+    prev_frame_time: Instant,
+    prev_avg_frame_time: Instant,
+    frame_count: u32,
+    avg_frame_time_ms: f32,
+    delta_time: Duration,
+}
+
+impl Time {
+    pub fn new() -> Self {
+        let now = Instant::now();
+        Self {
+            prev_frame_time: now,
+            prev_avg_frame_time: now,
+            frame_count: 0,
+            avg_frame_time_ms: 0.0,
+            delta_time: Duration::ZERO,
+        }
+    }
+
+    pub fn next_frame(&mut self) {
+        let now = Instant::now();
+        self.delta_time = now.duration_since(self.prev_frame_time);
+        self.prev_frame_time = now;
+
+        self.frame_count += 1;
+        if now.duration_since(self.prev_avg_frame_time) >= Duration::from_secs(1) {
+            self.avg_frame_time_ms = 1000.0 / self.frame_count as f32;
+            self.frame_count = 0;
+            self.prev_avg_frame_time = now;
+        }
+    }
+
+    pub fn delta_seconds(&self) -> f32 {
+        self.delta_time.as_secs_f32()
+    }
+
+    pub fn avg_frame_time_ms(&self) -> f32 {
+        self.avg_frame_time_ms
+    }
+}
+
+impl FromWorld for Time {
+    fn from_world(_world: &mut World) -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Resource, Default)]

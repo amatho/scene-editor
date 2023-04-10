@@ -6,7 +6,7 @@ use crate::commands;
 use crate::components::{
     CustomShader, CustomTexture, Mesh, PointLight, Position, Rotation, Scale, Selected,
 };
-use crate::resources::{EguiGlowRes, ModelLoader, TextureLoader, UiState, WinitWindow};
+use crate::resources::{EguiGlowRes, ModelLoader, TextureLoader, Time, UiState, WinitWindow};
 use crate::shader::ShaderType;
 
 type EntityQuery<'a> = (
@@ -25,6 +25,7 @@ pub fn run_ui(
     mut state: ResMut<UiState>,
     model_loader: Res<ModelLoader>,
     texture_loader: Res<TextureLoader>,
+    time: Res<Time>,
     mut selected_entities: Query<EntityQuery, With<Selected>>,
     all_mesh_entities: Query<Entity, With<Mesh>>,
     mut commands: Commands,
@@ -40,6 +41,7 @@ pub fn run_ui(
                 egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
                     ui.horizontal_wrapped(|ui| {
                         ui.toggle_value(&mut state.utilities_open, "🔧 Utilities");
+                        ui.toggle_value(&mut state.performance_open, "⏱ Performance");
                     });
                 });
 
@@ -245,6 +247,11 @@ pub fn run_ui(
                         });
                     },
                 );
+
+                egui::Window::new("⏱ Performance").open(&mut state.performance_open).show(ctx, |ui| {
+                    ui.label(format!("Frame time: {}", time.avg_frame_time_ms()));
+                    ui.label(format!("FPS: {}", (1000.0 / time.avg_frame_time_ms()).round()));
+                });
             }
             Some(editing_mode) => {
                 if let Ok((entity, _, _, _, custom_shader, _)) = selected {

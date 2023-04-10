@@ -1,7 +1,6 @@
 use std::num::NonZeroU32;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::time::Instant;
 
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::ExecutorKind;
@@ -53,6 +52,7 @@ pub fn run_game_loop(
     model_loader.load_models_in_dir(&gl, "res/models")?;
     let mut texture_loader = TextureLoader::new();
     texture_loader.load_textures_in_dir(&gl, "res/textures")?;
+
     world.spawn((
         Mesh::from(model_loader.get("Plane").unwrap()),
         TransformBundle {
@@ -78,26 +78,17 @@ pub fn run_game_loop(
         TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
     ));
 
-    let window_size = window.inner_size();
-
-    // Make sure systems using OpenGL runs on the main thread
+    // Make sure systems using OpenGL runs on this thread
     world.insert_non_send_resource(gl.clone());
-    world.insert_resource(RenderSettings::new(&gl)?);
-    world.insert_resource(Camera::new(
-        Camera::perspective(window_size.width, window_size.height),
-        glm::vec3(0.0, 0.0, 0.0),
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 1.0, 0.0),
-        -90.0,
-        0.0,
-    ));
     world.insert_resource(model_loader);
     world.insert_resource(texture_loader);
-    world.insert_resource(EguiGlowRes::new(egui_glow));
     world.insert_resource(WinitWindow::new(window.clone()));
-    world.insert_resource(UiState::new(&window));
-    world.init_resource::<Input>();
+    world.insert_resource(EguiGlowRes::new(egui_glow));
+    world.init_resource::<RenderSettings>();
+    world.init_resource::<Camera>();
+    world.init_resource::<UiState>();
     world.init_resource::<Time>();
+    world.init_resource::<Input>();
 
     let mut schedule = Schedule::default();
     schedule.add_systems((
@@ -110,8 +101,6 @@ pub fn run_game_loop(
     let mut render_schedule = Schedule::default();
     render_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     render_schedule.add_systems((renderer::render, ui::paint_ui).chain());
-
-    let mut previous_frame_time = Instant::now();
 
     'game_loop: loop {
         for event in event_receiver.try_iter() {
@@ -196,12 +185,7 @@ pub fn run_game_loop(
         gl_surface.swap_buffers(&gl_context)?;
 
         world.resource_mut::<Input>().update_after_frame();
-
-        let now = Instant::now();
-        let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
-        previous_frame_time = now;
-        world.resource_mut::<Time>().delta_time = delta_time;
-
+        world.resource_mut::<Time>().next_frame();
         world.clear_trackers();
     }
 }

@@ -30,7 +30,7 @@ pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time
         (yaw_radians.sin() * pitch_radians.cos()) as f32,
     ));
 
-    let speed = CAMERA_SPEED * time.delta_time * speed_modifier;
+    let speed = CAMERA_SPEED * time.delta_seconds() * speed_modifier;
     if input.get_key_press_continuous(VirtualKeyCode::W) {
         camera.pos += speed * front;
     }
