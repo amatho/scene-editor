@@ -38,9 +38,14 @@ pub fn run_game_loop(
     let attrs = window.build_surface_attributes(Default::default());
     let gl_surface = unsafe { gl_config.display().create_window_surface(&gl_config, &attrs)? };
     let gl_context = not_current_gl_context.make_current(&gl_surface)?;
-    gl_surface
-        .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
-        .unwrap();
+    gl_surface.set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))?;
+
+    // Draw once before loading
+    unsafe {
+        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl.clear(glow::COLOR_BUFFER_BIT);
+        gl_surface.swap_buffers(&gl_context)?;
+    }
 
     let mut world = World::new();
 
@@ -188,7 +193,7 @@ pub fn run_game_loop(
         schedule.run(&mut world);
         render_schedule.run(&mut world);
 
-        gl_surface.swap_buffers(&gl_context).unwrap();
+        gl_surface.swap_buffers(&gl_context)?;
 
         world.resource_mut::<Input>().update_after_frame();
 
