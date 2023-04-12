@@ -89,6 +89,11 @@ pub unsafe fn uniform_vec3(gl: &Context, program: Program, name: &str, value: &g
     gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));
 }
 
+pub unsafe fn uniform_mat3(gl: &Context, program: Program, name: &str, value: &glm::Mat3) {
+    let loc = gl.get_uniform_location(program, name);
+    gl.uniform_matrix_3_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
+}
+
 pub unsafe fn uniform_mat4(gl: &Context, program: Program, name: &str, value: &glm::Mat4) {
     let loc = gl.get_uniform_location(program, name);
     gl.uniform_matrix_4_f32_slice(loc.as_ref(), false, glm::value_ptr(value));

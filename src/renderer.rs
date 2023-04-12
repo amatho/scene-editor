@@ -62,6 +62,7 @@ pub fn render(
             * glm::scaling(&scale.into());
 
         let mvp = vp * model;
+        let normal_mat = glm::mat4_to_mat3(&model.try_inverse().unwrap().transpose());
         let id = i + 1;
 
         unsafe {
@@ -82,6 +83,7 @@ pub fn render(
             shader.activate(&gl);
             gl_util::uniform_mat4(&gl, shader.program, "mvp", &mvp);
             gl_util::uniform_mat4(&gl, shader.program, "model", &model);
+            gl_util::uniform_mat3(&gl, shader.program, "normalMat", &normal_mat);
             gl_util::uniform_vec3(&gl, shader.program, "viewPos", &camera.pos);
 
             gl_util::uniform_int(&gl, shader.program, "material.diffuse", 0);
