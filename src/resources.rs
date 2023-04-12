@@ -1,5 +1,4 @@
 use std::fmt;
-use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -14,6 +13,10 @@ use glow::{Context, HasContext, Texture};
 use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
+use zune_png::zune_core::bit_depth::{BitDepth, ByteEndian};
+use zune_png::zune_core::colorspace::ColorSpace;
+use zune_png::zune_core::options::DecoderOptions;
+use zune_png::PngDecoder;
 
 use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
@@ -296,57 +299,48 @@ impl TextureLoader {
     where
         P: AsRef<Path>,
     {
-        let decoder = png::Decoder::new(File::open(path.as_ref())?);
-        let mut reader = decoder.read_info()?;
-        let mut buf = vec![0; reader.output_buffer_size()];
-        let info = reader.next_frame(&mut buf)?;
+        let contents = std::fs::read(path.as_ref())?;
+        let byte_endian =
+            if cfg!(target_endian = "little") { ByteEndian::LE } else { ByteEndian::BE };
+        let mut decoder = PngDecoder::new_with_options(
+            &contents,
+            DecoderOptions::new_fast().set_byte_endian(byte_endian),
+        );
+        decoder.decode_headers().map_err(|_| eyre!("could not decode PNG headers"))?;
 
-        let (source_format, source_type) = match (info.color_type, info.bit_depth) {
-            (png::ColorType::Indexed, png::BitDepth::Eight) => (glow::RED, glow::UNSIGNED_BYTE),
-            (png::ColorType::Indexed, png::BitDepth::Sixteen) => (glow::RED, glow::UNSIGNED_SHORT),
-            (png::ColorType::Grayscale, png::BitDepth::Eight) => (glow::RED, glow::UNSIGNED_BYTE),
-            (png::ColorType::Grayscale, png::BitDepth::Sixteen) => {
-                (glow::RED, glow::UNSIGNED_SHORT)
-            }
-            (png::ColorType::GrayscaleAlpha, png::BitDepth::Eight) => {
-                (glow::RG, glow::UNSIGNED_BYTE)
-            }
-            (png::ColorType::GrayscaleAlpha, png::BitDepth::Sixteen) => {
-                (glow::RG, glow::UNSIGNED_SHORT)
-            }
-            (png::ColorType::Rgb, png::BitDepth::Eight) => (glow::RGB, glow::UNSIGNED_BYTE),
-            (png::ColorType::Rgb, png::BitDepth::Sixteen) => (glow::RGB, glow::UNSIGNED_SHORT),
-            (png::ColorType::Rgba, png::BitDepth::Eight) => (glow::RGBA, glow::UNSIGNED_BYTE),
-            (png::ColorType::Rgba, png::BitDepth::Sixteen) => (glow::RGBA, glow::UNSIGNED_SHORT),
+        let color_space = decoder.get_colorspace().unwrap();
+        let bit_depth = decoder.get_depth().unwrap();
+        let (source_format, source_type) = match (color_space, bit_depth) {
+            (ColorSpace::RGB, BitDepth::Eight) => (glow::RGB, glow::UNSIGNED_BYTE),
+            (ColorSpace::RGB, BitDepth::Sixteen) => (glow::RGB, glow::UNSIGNED_SHORT),
+            (ColorSpace::RGBA, BitDepth::Eight) => (glow::RGBA, glow::UNSIGNED_BYTE),
+            (ColorSpace::RGBA, BitDepth::Sixteen) => (glow::RGBA, glow::UNSIGNED_SHORT),
             _ => {
                 return Err(eyre!(
                     "invalid bit depth {:?} of image {}",
-                    info.bit_depth,
+                    bit_depth,
                     path.as_ref().display()
                 ));
             }
         };
 
-        let bytes = &buf[..info.buffer_size()];
+        let (width, height) = decoder.get_dimensions().unwrap();
+        let bytes = decoder.decode_raw().map_err(|_| eyre!("could not decode PNG image"))?;
 
         let texture = unsafe {
             let texture =
                 gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-            // Make OpenGL not care about alignment
-            gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
-            // `png` uses big-endian so we want OpenGL to swap them to get the correct layout
-            gl.pixel_store_bool(glow::UNPACK_SWAP_BYTES, true);
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
                 glow::RGBA as i32,
-                info.width as i32,
-                info.height as i32,
+                width as i32,
+                height as i32,
                 0,
                 source_format,
                 source_type,
-                Some(bytes),
+                Some(&bytes),
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,

@@ -16,12 +16,18 @@ glow = "0.12"
 glutin = "0.30"
 glutin-winit = "0.3"
 nalgebra-glm = { version = "0.18", features = ["convert-bytemuck"] }
-png = "0.17.7"
 raw-window-handle = "0.5"
 tobj = "3.2"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 winit = "0.28"
+zune-png = "0.2.0"
 
 [patch.crates-io]
 winit = { git = "https://github.com/amatho/winit", branch = "fix-macos-set-ime-pos" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
