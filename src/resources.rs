@@ -9,7 +9,7 @@ use bevy_ecs::world::{FromWorld, World};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use egui_glow::EguiGlow;
-use glow::{Context, HasContext, Texture};
+use glow::{Context, Framebuffer, HasContext, Texture};
 use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
@@ -27,6 +27,9 @@ pub struct RenderSettings {
     pub outline_shader: Shader,
     pub default_diffuse: Texture,
     pub default_specular: Texture,
+    pub shadow_depth_map: Framebuffer,
+    pub shadow_map_size: (i32, i32),
+    pub depth_shader: Shader,
 }
 
 impl RenderSettings {
@@ -77,7 +80,57 @@ impl RenderSettings {
             tex
         };
 
-        Ok(Self { default_shader, outline_shader, default_diffuse, default_specular })
+        let shadow_map_size = (1024, 1024);
+        let shadow_depth_map = unsafe {
+            let fbo =
+                gl.create_framebuffer().map_err(|e| eyre!("could not create framebuffer: {e}"))?;
+
+            let map = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(map));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::DEPTH_COMPONENT as i32,
+                shadow_map_size.0,
+                shadow_map_size.1,
+                0,
+                glow::DEPTH_COMPONENT,
+                glow::FLOAT,
+                None,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
+
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::DEPTH_ATTACHMENT,
+                glow::TEXTURE_2D,
+                Some(map),
+                0,
+            );
+            gl.draw_buffer(glow::NONE);
+            gl.read_buffer(glow::NONE);
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+
+            fbo
+        };
+
+        let depth_shader = ShaderBuilder::new(gl)
+            .add_shader_source(include_str!("../shaders/depth_vert.glsl"), ShaderType::Vertex)?
+            .link()?;
+
+        Ok(Self {
+            default_shader,
+            outline_shader,
+            default_diffuse,
+            default_specular,
+            shadow_depth_map,
+            shadow_map_size,
+            depth_shader,
+        })
     }
 }
 
@@ -132,10 +185,8 @@ impl FromWorld for Camera {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct UiState {
-    pub width: u32,
-    pub height: u32,
     pub camera_focused: bool,
     pub utilities_open: bool,
     pub performance_open: bool,
@@ -143,31 +194,6 @@ pub struct UiState {
     pub selected_model: Option<String>,
     pub selected_diffuse: Option<String>,
     pub selected_specular: Option<String>,
-}
-
-impl UiState {
-    pub fn new(window: &Window) -> Self {
-        let (width, height) = window.inner_size().into();
-
-        Self {
-            width,
-            height,
-            camera_focused: false,
-            utilities_open: false,
-            performance_open: false,
-            editing_mode: None,
-            selected_model: None,
-            selected_diffuse: None,
-            selected_specular: None,
-        }
-    }
-}
-
-impl FromWorld for UiState {
-    fn from_world(world: &mut World) -> Self {
-        let window = world.resource::<WinitWindow>();
-        Self::new(window)
-    }
 }
 
 #[derive(Resource)]

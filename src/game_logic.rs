@@ -196,16 +196,11 @@ fn resize(
     world: &mut World,
     new_size: PhysicalSize<u32>,
 ) {
-    let (width, height) = new_size.into();
+    let (width, height): (u32, u32) = new_size.into();
     if width != 0 && height != 0 {
         // Update projection
         world.resource_mut::<Camera>().projection =
             Camera::perspective(new_size.width, new_size.height);
-
-        // Update UI state
-        let mut ws = world.resource_mut::<UiState>();
-        ws.width = width;
-        ws.height = height;
 
         // Resize surface (no-op on most platforms, needed for compatibility)
         gl_surface.resize(gl_context, width.try_into().unwrap(), height.try_into().unwrap());
