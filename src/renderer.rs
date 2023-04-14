@@ -30,9 +30,9 @@ pub fn render(
     lights: Query<(&PointLight, &Position)>,
     mut commands: Commands,
 ) {
-    let light_space_matrix = glm::ortho(-20.0f32, 20.0, -20.0, 20.0, 1.0, 15.0)
+    let light_space_matrix = glm::ortho(-15.0f32, 15.0, -10.0, 10.0, -15.0, 15.0)
         * glm::look_at(
-            &glm::vec3(1.2, 8.0, 2.4),
+            &glm::vec3(0.2, 1.0, 0.5),
             &glm::vec3(0.0, 0.0, 0.0),
             &glm::vec3(0.0, 1.0, 0.0),
         );
@@ -145,7 +145,7 @@ pub fn render(
                 &gl,
                 shader.program,
                 "dirLight.direction",
-                &glm::vec3(-0.2, -1.0, -0.3),
+                &glm::vec3(-0.2, -1.0, -0.5),
             );
             gl_util::uniform_vec3(
                 &gl,

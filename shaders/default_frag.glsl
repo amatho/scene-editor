@@ -47,6 +47,7 @@ uniform sampler2DShadow shadowMap;
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir, float shadow);
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir);
+vec3 CalculateGeneralLight(vec3 ambient, vec3 diffuse, vec3 specular, vec3 lightDir, vec3 normal, vec3 viewDir, float shadow);
 float CalculateShadow(vec3 normal);
 
 void main() {
@@ -66,33 +67,30 @@ void main() {
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir, float shadow) {
     vec3 lightDir = normalize(-light.direction);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-
-    vec3 ambient = light.ambient * vec3(texture(material.diffuse, fs_in.TexCoords));
-    vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse, fs_in.TexCoords));
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, fs_in.TexCoords));
-    return ambient + shadow * (diffuse + specular);
+    return CalculateGeneralLight(light.ambient, light.diffuse, light.specular, lightDir, normal, viewDir, shadow);
 }
 
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir) {
     vec3 lightDir = normalize(light.position - fs_in.FragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-
     float distance = length(light.position - fs_in.FragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
 
-    vec3 ambient = light.ambient * vec3(texture(material.diffuse, fs_in.TexCoords));
-    vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse, fs_in.TexCoords));
-    vec3 specular = light.specular * spec * vec3(texture(material.specular, fs_in.TexCoords));
-    ambient *= attenuation;
-    diffuse *= attenuation;
-    specular *= attenuation;
+    vec3 color = CalculateGeneralLight(light.ambient, light.diffuse, light.specular, lightDir, normal, viewDir, 1.0);
+    color *= attenuation;
 
-    return ambient + diffuse + specular;
+    return color;
+}
+
+vec3 CalculateGeneralLight(vec3 lightAmbient, vec3 lightDiffuse, vec3 lightSpecular, vec3 lightDir, vec3 normal, vec3 viewDir, float shadow) {
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+
+    vec3 ambient = lightAmbient * vec3(texture(material.diffuse, fs_in.TexCoords));
+    vec3 diffuse = lightDiffuse * diff * vec3(texture(material.diffuse, fs_in.TexCoords));
+    vec3 specular = lightSpecular * spec * vec3(texture(material.specular, fs_in.TexCoords));
+
+    return ambient + shadow * (diffuse + specular);
 }
 
 float CalculateShadow(vec3 normal) {
@@ -100,7 +98,7 @@ float CalculateShadow(vec3 normal) {
     projCoords = projCoords * 0.5 + 0.5;
 
     if (projCoords.z > 1.0) {
-        return 0.0;
+        return 1.0;
     }
 
     float currentDepth = projCoords.z;

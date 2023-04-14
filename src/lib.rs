@@ -150,6 +150,7 @@ fn create_glutin_window() -> (Context, PossiblyCurrentContext, Config, Window, E
 
     info!("Picked a config with {} samples", gl_config.num_samples());
     info!("Picked a config with {} stencil size", gl_config.stencil_size());
+    info!("Picked a config with {} depth size", gl_config.depth_size());
 
     let window = window.unwrap();
     let raw_window_handle = window.raw_window_handle();

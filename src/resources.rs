@@ -81,7 +81,7 @@ impl RenderSettings {
             tex
         };
 
-        let shadow_map_size = (1024, 1024);
+        let shadow_map_size = (4096, 4096);
         let (shadow_map_fbo, shadow_map) = unsafe {
             let fbo =
                 gl.create_framebuffer().map_err(|e| eyre!("could not create framebuffer: {e}"))?;
