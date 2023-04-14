@@ -43,7 +43,7 @@ uniform DirLight dirLight;
 uniform int pointLightsSize;
 uniform PointLight pointLights[MAX_POINT_LIGHTS];
 
-uniform sampler2D shadowMap;
+uniform sampler2DShadow shadowMap;
 
 vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir, float shadow);
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir);
@@ -73,7 +73,7 @@ vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 viewDir, float shadow) 
     vec3 ambient = light.ambient * vec3(texture(material.diffuse, fs_in.TexCoords));
     vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse, fs_in.TexCoords));
     vec3 specular = light.specular * spec * vec3(texture(material.specular, fs_in.TexCoords));
-    return ambient + (1.0 - shadow) * (diffuse + specular);
+    return ambient + shadow * (diffuse + specular);
 }
 
 vec3 CalculatePointLight(PointLight light, vec3 normal, vec3 viewDir) {
@@ -109,13 +109,12 @@ float CalculateShadow(vec3 normal) {
 
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+    for (float y = -1.5; y <= 1.5; y += 1.0) {
+        for (float x = -1.5; x <= 1.5; x += 1.0) {
+            shadow += texture(shadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, currentDepth - bias));
         }
     }
-    shadow /= 9.0;
+    shadow /= 16.0;
 
     return shadow;
 }

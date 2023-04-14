@@ -103,6 +103,12 @@ impl RenderSettings {
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
+                glow::TEXTURE_COMPARE_MODE,
+                glow::COMPARE_REF_TO_TEXTURE as i32,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_COMPARE_FUNC, glow::LEQUAL as i32);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
                 glow::TEXTURE_WRAP_S,
                 glow::CLAMP_TO_BORDER as i32,
             );
