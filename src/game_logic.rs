@@ -56,14 +56,14 @@ pub fn run_game_loop(
     world.spawn((
         Mesh::from(model_loader.get("Plane").unwrap()),
         TransformBundle {
-            position: Position::new(0.0, -2.0, -15.0),
+            position: Position::new(0.0, -2.0, 0.0),
             scale: Scale::new(10.0, 1.0, 10.0),
             ..Default::default()
         },
     ));
     world.spawn((
         Mesh::from(model_loader.get("Cube").unwrap()),
-        TransformBundle { position: Position::new(5.0, 0.0, -15.0), ..Default::default() },
+        TransformBundle { position: Position::new(5.0, 0.0, 0.0), ..Default::default() },
     ));
     world.spawn((
         Mesh::from(model_loader.get("Sphere").unwrap()),
@@ -75,7 +75,7 @@ pub fn run_game_loop(
             0.09,
             0.032,
         ),
-        TransformBundle { position: Position::new(-5.0, 0.0, -15.0), ..Default::default() },
+        TransformBundle { position: Position::new(-5.0, 0.0, 0.0), ..Default::default() },
     ));
 
     // Make sure systems using OpenGL runs on this thread
@@ -236,5 +236,6 @@ fn cleanup(world: &mut World) {
     unsafe {
         render_settings.default_shader.destroy(&gl);
         render_settings.outline_shader.destroy(&gl);
+        render_settings.depth_shader.destroy(&gl);
     }
 }

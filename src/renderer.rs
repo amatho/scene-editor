@@ -30,9 +30,9 @@ pub fn render(
     lights: Query<(&PointLight, &Position)>,
     mut commands: Commands,
 ) {
-    let light_space_matrix = glm::ortho(-10.0f32, 10.0, -10.0, 10.0, 1.0, 7.5)
+    let light_space_matrix = glm::ortho(-20.0f32, 20.0, -20.0, 20.0, 1.0, 15.0)
         * glm::look_at(
-            &glm::vec3(-2.0, 4.0, -1.0),
+            &glm::vec3(1.2, 8.0, 2.4),
             &glm::vec3(0.0, 0.0, 0.0),
             &glm::vec3(0.0, 1.0, 0.0),
         );
@@ -40,16 +40,23 @@ pub fn render(
     render_settings.depth_shader.activate(&gl);
 
     unsafe {
-        let (width, height) = render_settings.shadow_map_size;
-        gl.viewport(0, 0, width, height);
-        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_settings.shadow_depth_map));
-        gl.clear(glow::DEPTH_BUFFER_BIT);
+        // Fix after egui_glow and prepare for shadow mapping
+        gl.enable(glow::DEPTH_TEST);
+        gl.depth_func(glow::LESS);
+        gl.enable(glow::CULL_FACE);
+        gl.cull_face(glow::FRONT);
+
         gl_util::uniform_mat4(
             &gl,
             render_settings.depth_shader.program,
             "lightSpaceMatrix",
             &light_space_matrix,
         );
+
+        let (width, height) = render_settings.shadow_map_size;
+        gl.viewport(0, 0, width, height);
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_settings.shadow_map_fbo));
+        gl.clear(glow::DEPTH_BUFFER_BIT);
     }
 
     for (_, mesh, &pos, &rot, &scale, _, _, _) in &geometry {
@@ -60,7 +67,7 @@ pub fn render(
             * glm::scaling(&scale.into());
 
         unsafe {
-            gl_util::uniform_mat4(&gl, render_settings.default_shader.program, "model", &model);
+            gl_util::uniform_mat4(&gl, render_settings.depth_shader.program, "model", &model);
             gl.bind_vertex_array(Some(mesh.vao_id));
             gl.draw_elements(glow::TRIANGLES, mesh.indices_len as i32, glow::UNSIGNED_INT, 0);
         }
@@ -71,15 +78,12 @@ pub fn render(
         let window_size = window.inner_size();
         gl.viewport(0, 0, window_size.width as i32, window_size.height as i32);
 
-        // Enable various features.
-        // Some are disabled by egui_glow, and need to be enabled each time we render.
+        // Fix after egui_glow
         gl.enable(glow::BLEND);
         gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
-        gl.enable(glow::DEPTH_TEST);
-        gl.depth_func(glow::LESS);
-
-        gl.enable(glow::CULL_FACE);
+        // Use back face culling for real geometry
+        gl.cull_face(glow::BACK);
 
         gl.clear_color(0.4, 0.4, 1.0, 1.0);
         gl.stencil_mask(0xFF);
@@ -114,6 +118,8 @@ pub fn render(
             gl.bind_texture(glow::TEXTURE_2D, Some(diffuse));
             gl.active_texture(glow::TEXTURE1);
             gl.bind_texture(glow::TEXTURE_2D, Some(specular));
+            gl.active_texture(glow::TEXTURE2);
+            gl.bind_texture(glow::TEXTURE_2D, Some(render_settings.shadow_map));
 
             let shader = if let Some(CustomShader { shader: Ok(shader), .. }) = custom_shader {
                 shader
@@ -130,6 +136,9 @@ pub fn render(
             gl_util::uniform_int(&gl, shader.program, "material.diffuse", 0);
             gl_util::uniform_int(&gl, shader.program, "material.specular", 1);
             gl_util::uniform_float(&gl, shader.program, "material.shininess", 32.0);
+
+            gl_util::uniform_mat4(&gl, shader.program, "lightSpaceMatrix", &light_space_matrix);
+            gl_util::uniform_int(&gl, shader.program, "shadowMap", 2);
 
             // TODO: Make this configurable
             gl_util::uniform_vec3(
@@ -212,7 +221,6 @@ pub fn render(
 
             if selected.is_some() {
                 // Redraw the object in bigger scale, with stencil testing and outline shader
-
                 let mvp = mvp
                     * glm::scaling(
                         &glm::Vec3::from(scale)

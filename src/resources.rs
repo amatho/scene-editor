@@ -27,7 +27,8 @@ pub struct RenderSettings {
     pub outline_shader: Shader,
     pub default_diffuse: Texture,
     pub default_specular: Texture,
-    pub shadow_depth_map: Framebuffer,
+    pub shadow_map_fbo: Framebuffer,
+    pub shadow_map: Texture,
     pub shadow_map_size: (i32, i32),
     pub depth_shader: Shader,
 }
@@ -81,7 +82,7 @@ impl RenderSettings {
         };
 
         let shadow_map_size = (1024, 1024);
-        let shadow_depth_map = unsafe {
+        let (shadow_map_fbo, shadow_map) = unsafe {
             let fbo =
                 gl.create_framebuffer().map_err(|e| eyre!("could not create framebuffer: {e}"))?;
 
@@ -100,8 +101,21 @@ impl RenderSettings {
             );
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_BORDER as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_BORDER as i32,
+            );
+            gl.tex_parameter_f32_slice(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_BORDER_COLOR,
+                &[1.0, 1.0, 1.0, 1.0],
+            );
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
             gl.framebuffer_texture_2d(
@@ -115,11 +129,12 @@ impl RenderSettings {
             gl.read_buffer(glow::NONE);
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 
-            fbo
+            (fbo, map)
         };
 
         let depth_shader = ShaderBuilder::new(gl)
             .add_shader_source(include_str!("../shaders/depth_vert.glsl"), ShaderType::Vertex)?
+            .add_shader_source(include_str!("../shaders/depth_frag.glsl"), ShaderType::Fragment)?
             .link()?;
 
         Ok(Self {
@@ -127,7 +142,8 @@ impl RenderSettings {
             outline_shader,
             default_diffuse,
             default_specular,
-            shadow_depth_map,
+            shadow_map_fbo,
+            shadow_map,
             shadow_map_size,
             depth_shader,
         })
