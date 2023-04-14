@@ -103,7 +103,7 @@ float CalculateShadow(vec3 normal) {
 
     float currentDepth = projCoords.z;
     vec3 lightDir = normalize(-dirLight.direction);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    float bias = clamp(0.005 * tan(acos(max(dot(normal, lightDir), 0.0))), 0.0, 0.01);
 
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);

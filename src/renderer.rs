@@ -32,7 +32,7 @@ pub fn render(
 ) {
     let light_space_matrix = glm::ortho(-15.0f32, 15.0, -10.0, 10.0, -15.0, 15.0)
         * glm::look_at(
-            &glm::vec3(0.2, 1.0, 0.5),
+            &glm::vec3(0.2, 0.7, 0.5),
             &glm::vec3(0.0, 0.0, 0.0),
             &glm::vec3(0.0, 1.0, 0.0),
         );
@@ -44,7 +44,7 @@ pub fn render(
         gl.enable(glow::DEPTH_TEST);
         gl.depth_func(glow::LESS);
         gl.enable(glow::CULL_FACE);
-        gl.cull_face(glow::FRONT);
+        gl.cull_face(glow::BACK);
 
         gl_util::uniform_mat4(
             &gl,
@@ -81,9 +81,6 @@ pub fn render(
         // Fix after egui_glow
         gl.enable(glow::BLEND);
         gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
-
-        // Use back face culling for real geometry
-        gl.cull_face(glow::BACK);
 
         gl.clear_color(0.4, 0.4, 1.0, 1.0);
         gl.stencil_mask(0xFF);
@@ -145,7 +142,7 @@ pub fn render(
                 &gl,
                 shader.program,
                 "dirLight.direction",
-                &glm::vec3(-0.2, -1.0, -0.5),
+                &glm::vec3(-0.2, -0.7, -0.5),
             );
             gl_util::uniform_vec3(
                 &gl,

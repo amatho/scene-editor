@@ -91,7 +91,7 @@ impl RenderSettings {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                glow::DEPTH_COMPONENT as i32,
+                glow::DEPTH_COMPONENT24 as i32,
                 shadow_map_size.0,
                 shadow_map_size.1,
                 0,
