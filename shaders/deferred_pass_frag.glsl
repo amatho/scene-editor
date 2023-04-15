@@ -1,8 +1,8 @@
 #version 410 core
 
-in vec2 TexCoords;
+in vec2 tex_coords;
 
-out vec4 FragColor;
+out vec4 out_frag_color;
 
 struct DirLight {
     vec3 direction;
@@ -24,105 +24,100 @@ struct PointLight {
     float quadratic;
 };
 
-uniform sampler2D gPosition;
-uniform sampler2D gNormal;
-uniform sampler2D gAlbedoSpec;
+uniform sampler2D position_tx;
+uniform sampler2D normal_tx;
+uniform sampler2D albedo_spec_tx;
 
-uniform vec3 viewPos;
-uniform mat4 lightSpaceMatrix;
+uniform vec3 view_pos;
+uniform mat4 light_space_matrix;
 
-uniform DirLight dirLight;
+uniform DirLight dir_light;
 #define MAX_POINT_LIGHTS 128
-uniform int pointLightsSize;
-uniform PointLight pointLights[MAX_POINT_LIGHTS];
+uniform int point_lights_size;
+uniform PointLight point_lights[MAX_POINT_LIGHTS];
 
-uniform sampler2DShadow shadowMap;
+uniform sampler2DShadow shadow_map_tx;
 
-vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir, float shadow);
-vec3 CalculatePointLight(PointLight light, vec3 fragPos, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir);
-vec3 CalculateGeneralLight(vec3 ambient, vec3 diffuse, vec3 specular, vec3 lightDir, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir, float shadow);
-float CalculateShadow(vec4 fragPosLightSpace, vec3 normal);
+vec3 calculate_general_light(vec3 light_ambient, vec3 light_diffuse, vec3 light_specular, vec3 light_dir, vec3 normal, vec3 albedo, float specular_strength, vec3 view_dir, float shadow) {
+    float diff = max(dot(normal, light_dir), 0.0);
+    vec3 halfway_dir = normalize(light_dir + view_dir);
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), 16.0);
 
-void main() {
-    vec4 pos = texture(gPosition, TexCoords);
-    vec3 FragPos = pos.rgb;
+    vec3 ambient = light_ambient * albedo;
+    vec3 diffuse = light_diffuse * diff * albedo;
+    vec3 specular = light_specular * spec * specular_strength;
 
-    if (pos.a == 1.0) {
-        FragColor = vec4(1.0, 0.5, 0.0, 1.0);
-        return;
-    }
-
-    vec3 Normal = texture(gNormal, TexCoords).rgb;
-
-    if (Normal == vec3(0.0, 0.0, 0.0)) {
-        FragColor = vec4(0.4, 0.4, 1.0, 1.0);
-        return;
-    }
-
-    vec3 Albedo = texture(gAlbedoSpec, TexCoords).rgb;
-    float Specular = texture(gAlbedoSpec, TexCoords).a;
-
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 result = vec3(0.0);
-
-    float shadow = CalculateShadow(lightSpaceMatrix * vec4(FragPos, 1.0), Normal);
-    result += CalculateDirLight(dirLight, Normal, Albedo, Specular, viewDir, shadow);
-
-    for (int i = 0; i < pointLightsSize; i++) {
-        result += CalculatePointLight(pointLights[i], FragPos, Normal, Albedo, Specular, viewDir);
-    }
-
-    FragColor = vec4(result, 1.0);
+    return ambient + shadow * (diffuse + specular);
 }
 
-vec3 CalculateDirLight(DirLight light, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir, float shadow) {
-    vec3 lightDir = normalize(-light.direction);
-    return CalculateGeneralLight(light.ambient, light.diffuse, light.specular, lightDir, normal, albedo, specularStrength, viewDir, shadow);
+vec3 calculate_dir_light(vec3 normal, vec3 albedo, float specular_strength, vec3 view_dir, float shadow) {
+    vec3 light_dir = normalize(-dir_light.direction);
+    return calculate_general_light(dir_light.ambient, dir_light.diffuse, dir_light.specular, light_dir, normal, albedo, specular_strength, view_dir, shadow);
 }
 
-vec3 CalculatePointLight(PointLight light, vec3 fragPos, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir) {
-    vec3 lightDir = normalize(light.position - fragPos);
-    float distance = length(light.position - fragPos);
+vec3 calculate_point_light(PointLight light, vec3 frag_pos, vec3 normal, vec3 albedo, float specular_strength, vec3 view_dir) {
+    vec3 light_dir = normalize(light.position - frag_pos);
+    float distance = length(light.position - frag_pos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));
 
-    vec3 color = CalculateGeneralLight(light.ambient, light.diffuse, light.specular, lightDir, normal, albedo, specularStrength, viewDir, 1.0);
+    vec3 color = calculate_general_light(light.ambient, light.diffuse, light.specular, light_dir, normal, albedo, specular_strength, view_dir, 1.0);
     color *= attenuation;
 
     return color;
 }
 
-vec3 CalculateGeneralLight(vec3 lightAmbient, vec3 lightDiffuse, vec3 lightSpecular, vec3 lightDir, vec3 normal, vec3 albedo, float specularStrength, vec3 viewDir, float shadow) {
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
+float calculate_shadow(vec4 frag_pos_light_space, vec3 normal) {
+    vec3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
+    proj_coords = proj_coords * 0.5 + 0.5;
 
-    vec3 ambient = lightAmbient * albedo;
-    vec3 diffuse = lightDiffuse * diff * albedo;
-    vec3 specular = lightSpecular * spec * specularStrength;
-
-    return ambient + shadow * (diffuse + specular);
-}
-
-float CalculateShadow(vec4 fragPosLightSpace, vec3 normal) {
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-
-    if (projCoords.z > 1.0) {
+    if (proj_coords.z > 1.0) {
         return 1.0;
     }
 
-    float currentDepth = projCoords.z;
-    vec3 lightDir = normalize(-dirLight.direction);
-    float bias = clamp(0.005 * tan(acos(max(dot(normal, lightDir), 0.0))), 0.0, 0.01);
+    float current_depth = proj_coords.z;
+    vec3 light_dir = normalize(-dir_light.direction);
+    float bias = clamp(0.005 * tan(acos(max(dot(normal, light_dir), 0.0))), 0.0, 0.01);
 
     float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texel_size = 1.0 / textureSize(shadow_map_tx, 0);
     for (float y = -1.5; y <= 1.5; y += 1.0) {
         for (float x = -1.5; x <= 1.5; x += 1.0) {
-            shadow += texture(shadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, currentDepth - bias));
+            shadow += texture(shadow_map_tx, vec3(proj_coords.xy + vec2(x, y) * texel_size, current_depth - bias));
         }
     }
     shadow /= 16.0;
 
     return shadow;
+}
+
+void main() {
+    vec4 pos = texture(position_tx, tex_coords);
+    vec3 frag_pos = pos.rgb;
+
+    if (pos.a == 1.0) {
+        out_frag_color = vec4(1.0, 0.5, 0.0, 1.0);
+        return;
+    }
+
+    vec3 normal = texture(normal_tx, tex_coords).rgb;
+
+    if (normal == vec3(0.0, 0.0, 0.0)) {
+        out_frag_color = vec4(0.4, 0.4, 1.0, 1.0);
+        return;
+    }
+
+    vec3 albedo = texture(albedo_spec_tx, tex_coords).rgb;
+    float specular = texture(albedo_spec_tx, tex_coords).a;
+
+    vec3 view_dir = normalize(view_pos - frag_pos);
+    vec3 result = vec3(0.0);
+
+    float shadow = calculate_shadow(light_space_matrix * vec4(frag_pos, 1.0), normal);
+    result += calculate_dir_light(normal, albedo, specular, view_dir, shadow);
+
+    for (int i = 0; i < point_lights_size; i++) {
+        result += calculate_point_light(point_lights[i], frag_pos, normal, albedo, specular, view_dir);
+    }
+
+    out_frag_color = vec4(result, 1.0);
 }
