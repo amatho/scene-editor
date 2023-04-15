@@ -7,8 +7,10 @@ use color_eyre::Result;
 use glow::{Context, HasContext};
 use tracing::warn;
 
-pub const DEFAULT_VERT: &str = include_str!("../shaders/default_vert.glsl");
-pub const DEFAULT_FRAG: &str = include_str!("../shaders/default_frag.glsl");
+pub const GEOMETRY_PASS_VERT: &str = include_str!("../shaders/geometry_pass_vert.glsl");
+pub const GEOMETRY_PASS_FRAG: &str = include_str!("../shaders/geometry_pass_frag.glsl");
+pub const DEFERRED_PASS_VERT: &str = include_str!("../shaders/deferred_pass_vert.glsl");
+pub const DEFERRED_PASS_FRAG: &str = include_str!("../shaders/deferred_pass_frag.glsl");
 
 pub struct Shader {
     pub program: glow::Program,

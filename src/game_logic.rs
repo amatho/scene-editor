@@ -21,8 +21,7 @@ use winit::window::{CursorGrabMode, Window};
 
 use crate::components::{CustomShader, Mesh, PointLight, Position, Scale, TransformBundle};
 use crate::resources::{
-    Camera, EguiGlowRes, Input, ModelLoader, RenderSettings, TextureLoader, Time, UiState,
-    WinitWindow,
+    Camera, EguiGlowRes, Input, ModelLoader, RenderState, TextureLoader, Time, UiState, WinitWindow,
 };
 use crate::{renderer, systems, ui, WinitEvent};
 
@@ -84,7 +83,7 @@ pub fn run_game_loop(
     world.insert_resource(texture_loader);
     world.insert_resource(WinitWindow::new(window.clone()));
     world.insert_resource(EguiGlowRes::new(egui_glow));
-    world.init_resource::<RenderSettings>();
+    world.init_resource::<RenderState>();
     world.init_resource::<Camera>();
     world.init_resource::<UiState>();
     world.init_resource::<Time>();
@@ -205,10 +204,11 @@ fn resize(
         // Resize surface (no-op on most platforms, needed for compatibility)
         gl_surface.resize(gl_context, width.try_into().unwrap(), height.try_into().unwrap());
 
-        unsafe {
-            // Resize viewport
-            world.non_send_resource::<Arc<Context>>().viewport(0, 0, width as i32, height as i32);
-        }
+        // Resize render state
+        world.resource_scope(|world, mut rs: Mut<RenderState>| {
+            let gl = world.non_send_resource::<Arc<Context>>();
+            rs.resize(gl, width, height);
+        });
     }
 }
 
@@ -232,10 +232,11 @@ fn cleanup(world: &mut World) {
         }
     }
 
-    let mut render_settings = world.resource_mut::<RenderSettings>();
+    let mut render_state = world.resource_mut::<RenderState>();
     unsafe {
-        render_settings.default_shader.destroy(&gl);
-        render_settings.outline_shader.destroy(&gl);
-        render_settings.depth_shader.destroy(&gl);
+        render_state.quad_vao.destroy(&gl);
+        render_state.depth_shader.destroy(&gl);
+        render_state.geometry_pass_shader.destroy(&gl);
+        render_state.deferred_pass_shader.destroy(&gl);
     }
 }

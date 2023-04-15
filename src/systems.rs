@@ -7,7 +7,7 @@ use tracing::debug;
 use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::components::{Mesh, Position, Selected, StencilId, TransformBundle};
-use crate::resources::{Camera, Input, ModelLoader, Time, WinitWindow};
+use crate::resources::{Camera, Input, ModelLoader, RenderState, Time, WinitWindow};
 
 pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
@@ -72,6 +72,7 @@ pub fn select_object(
     gl: NonSend<Arc<Context>>,
     window: Res<WinitWindow>,
     input: Res<Input>,
+    render_state: Res<RenderState>,
     already_selected: Query<Entity, With<Selected>>,
     query: Query<(Entity, &StencilId)>,
     mut commands: Commands,
@@ -85,16 +86,20 @@ pub fn select_object(
         let window_height = window.inner_size().height;
         let index = unsafe {
             let mut bytes = [0; 4];
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_state.g_buffer));
+            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(render_state.g_rbo));
             gl.read_pixels(
                 x as i32,
                 window_height as i32 - y as i32 - 1,
                 1,
                 1,
-                glow::STENCIL_INDEX,
-                glow::UNSIGNED_INT,
+                glow::DEPTH_STENCIL,
+                glow::UNSIGNED_INT_24_8,
                 PixelPackData::Slice(&mut bytes),
             );
-            u32::from_ne_bytes(bytes) as usize
+            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+            let pixel = u32::from_ne_bytes(bytes);
+            (pixel & 0xFF) as usize
         };
 
         let mut found = false;

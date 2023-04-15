@@ -9,7 +9,7 @@ use bevy_ecs::world::{FromWorld, World};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use egui_glow::EguiGlow;
-use glow::{Context, Framebuffer, HasContext, Texture};
+use glow::{Context, Framebuffer, HasContext, Renderbuffer, Texture};
 use nalgebra_glm as glm;
 use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 use winit::window::Window;
@@ -22,29 +22,25 @@ use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
 
 #[derive(Resource)]
-pub struct RenderSettings {
-    pub default_shader: Shader,
-    pub outline_shader: Shader,
+pub struct RenderState {
     pub default_diffuse: Texture,
     pub default_specular: Texture,
     pub shadow_map_fbo: Framebuffer,
     pub shadow_map: Texture,
     pub shadow_map_size: (i32, i32),
     pub depth_shader: Shader,
+    pub g_buffer: Framebuffer,
+    pub g_position: Texture,
+    pub g_normal: Texture,
+    pub g_albedo_spec: Texture,
+    pub g_rbo: Renderbuffer,
+    pub geometry_pass_shader: Shader,
+    pub quad_vao: VertexArrayObject,
+    pub deferred_pass_shader: Shader,
 }
 
-impl RenderSettings {
-    pub fn new(gl: &Context) -> Result<Self> {
-        let default_shader = ShaderBuilder::new(gl)
-            .add_shader_source(crate::shader::DEFAULT_VERT, ShaderType::Vertex)?
-            .add_shader_source(crate::shader::DEFAULT_FRAG, ShaderType::Fragment)?
-            .link()?;
-
-        let outline_shader = ShaderBuilder::new(gl)
-            .add_shader_source(include_str!("../shaders/outline_vert.glsl"), ShaderType::Vertex)?
-            .add_shader_source(include_str!("../shaders/outline_frag.glsl"), ShaderType::Fragment)?
-            .link()?;
-
+impl RenderState {
+    pub fn new(gl: &Context, window_size: (u32, u32)) -> Result<Self> {
         let default_diffuse = unsafe {
             let tex = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
             gl.bind_texture(glow::TEXTURE_2D, Some(tex));
@@ -143,23 +139,221 @@ impl RenderSettings {
             .add_shader_source(include_str!("../shaders/depth_frag.glsl"), ShaderType::Fragment)?
             .link()?;
 
+        let (g_buffer, g_position, g_normal, g_albedo_spec, g_rbo) = unsafe {
+            let g_buf =
+                gl.create_framebuffer().map_err(|e| eyre!("could not create framebuffer: {e}"))?;
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(g_buf));
+
+            let (width, height) = window_size;
+            let width = width as i32;
+            let height = height as i32;
+            let g_pos = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(g_pos));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA16F as i32,
+                width,
+                height,
+                0,
+                glow::RGBA,
+                glow::FLOAT,
+                None,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
+                Some(g_pos),
+                0,
+            );
+
+            let g_norm = gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(g_norm));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA16F as i32,
+                width,
+                height,
+                0,
+                glow::RGBA,
+                glow::FLOAT,
+                None,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT1,
+                glow::TEXTURE_2D,
+                Some(g_norm),
+                0,
+            );
+
+            let g_alb_spec =
+                gl.create_texture().map_err(|e| eyre!("could not create texture: {e}"))?;
+            gl.bind_texture(glow::TEXTURE_2D, Some(g_alb_spec));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                width,
+                height,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                None,
+            );
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.framebuffer_texture_2d(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT2,
+                glow::TEXTURE_2D,
+                Some(g_alb_spec),
+                0,
+            );
+
+            gl.draw_buffers(&[
+                glow::COLOR_ATTACHMENT0,
+                glow::COLOR_ATTACHMENT1,
+                glow::COLOR_ATTACHMENT2,
+            ]);
+
+            let rbo = gl
+                .create_renderbuffer()
+                .map_err(|e| eyre!("could not create renderbuffer: {e}"))?;
+            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbo));
+            gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH24_STENCIL8, width, height);
+            gl.framebuffer_renderbuffer(
+                glow::FRAMEBUFFER,
+                glow::DEPTH_STENCIL_ATTACHMENT,
+                glow::RENDERBUFFER,
+                Some(rbo),
+            );
+
+            if gl.check_framebuffer_status(glow::FRAMEBUFFER) != glow::FRAMEBUFFER_COMPLETE {
+                return Err(eyre!("framebuffer was not completed"));
+            }
+
+            (g_buf, g_pos, g_norm, g_alb_spec, rbo)
+        };
+
+        let geometry_pass_shader = ShaderBuilder::new(gl)
+            .add_shader_source(crate::shader::GEOMETRY_PASS_VERT, ShaderType::Vertex)?
+            .add_shader_source(crate::shader::GEOMETRY_PASS_FRAG, ShaderType::Fragment)?
+            .link()?;
+
+        let quad_vertices = [
+            glm::vec3(-1.0, 1.0, 0.0),
+            glm::vec3(-1.0, -1.0, 0.0),
+            glm::vec3(1.0, 1.0, 0.0),
+            glm::vec3(1.0, -1.0, 0.0),
+        ];
+        let quad_indices = [0, 1, 2, 1, 3, 2];
+        let quad_normals = [
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, 0.0),
+            glm::vec3(0.0, 0.0, 0.0),
+        ];
+        let quad_texcoords =
+            [glm::vec2(0.0, 1.0), glm::vec2(0.0, 0.0), glm::vec2(1.0, 1.0), glm::vec2(1.0, 0.0)];
+        let quad_vao = unsafe {
+            VertexArrayObject::new(
+                gl,
+                &quad_vertices,
+                &quad_indices,
+                &quad_normals,
+                &quad_texcoords,
+            )
+        };
+
+        let deferred_pass_shader = ShaderBuilder::new(gl)
+            .add_shader_source(crate::shader::DEFERRED_PASS_VERT, ShaderType::Vertex)?
+            .add_shader_source(crate::shader::DEFERRED_PASS_FRAG, ShaderType::Fragment)?
+            .link()?;
+
         Ok(Self {
-            default_shader,
-            outline_shader,
             default_diffuse,
             default_specular,
             shadow_map_fbo,
             shadow_map,
             shadow_map_size,
             depth_shader,
+            g_buffer,
+            g_position,
+            g_normal,
+            g_albedo_spec,
+            g_rbo,
+            geometry_pass_shader,
+            quad_vao,
+            deferred_pass_shader,
         })
+    }
+
+    pub fn resize(&mut self, gl: &Context, new_width: u32, new_height: u32) {
+        let new_width = new_width as i32;
+        let new_height = new_height as i32;
+        unsafe {
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.g_position));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA16F as i32,
+                new_width,
+                new_height,
+                0,
+                glow::RGBA,
+                glow::FLOAT,
+                None,
+            );
+
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.g_normal));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA16F as i32,
+                new_width,
+                new_height,
+                0,
+                glow::RGBA,
+                glow::FLOAT,
+                None,
+            );
+
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.g_albedo_spec));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                new_width,
+                new_height,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                None,
+            );
+
+            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(self.g_rbo));
+            gl.renderbuffer_storage(
+                glow::RENDERBUFFER,
+                glow::DEPTH24_STENCIL8,
+                new_width,
+                new_height,
+            );
+        }
     }
 }
 
-impl FromWorld for RenderSettings {
+impl FromWorld for RenderState {
     fn from_world(world: &mut World) -> Self {
         let gl = world.non_send_resource::<Arc<Context>>();
-        Self::new(gl).unwrap()
+        let window_size = world.resource::<WinitWindow>().inner_size().into();
+        Self::new(gl, window_size).unwrap()
     }
 }
 
