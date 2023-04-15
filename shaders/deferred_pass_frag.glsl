@@ -115,7 +115,8 @@ void main() {
     float shadow = calculate_shadow(light_space_matrix * vec4(frag_pos, 1.0), normal);
     result += calculate_dir_light(normal, albedo, specular, view_dir, shadow);
 
-    for (int i = 0; i < point_lights_size; i++) {
+    int size = min(point_lights_size, MAX_POINT_LIGHTS);
+    for (int i = 0; i < size; i++) {
         result += calculate_point_light(point_lights[i], frag_pos, normal, albedo, specular, view_dir);
     }
 
