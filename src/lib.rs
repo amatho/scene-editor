@@ -1,12 +1,12 @@
 mod commands;
 mod components;
 mod game_logic;
-mod gl_util;
 mod renderer;
 mod resources;
 mod shader;
 mod systems;
 mod ui;
+mod vao;
 
 use std::cell::Cell;
 use std::ffi::CString;

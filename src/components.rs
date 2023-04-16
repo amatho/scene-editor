@@ -3,8 +3,8 @@ use color_eyre::Result;
 use glow::{Context, Texture, VertexArray};
 use nalgebra_glm as glm;
 
-use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
+use crate::vao::VertexArrayObject;
 
 #[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Position {

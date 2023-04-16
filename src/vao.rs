@@ -1,7 +1,7 @@
 use std::mem;
 
 use bytemuck::Pod;
-use glow::{Buffer, Context, HasContext, Program, VertexArray};
+use glow::{Buffer, Context, HasContext, VertexArray};
 use nalgebra_glm as glm;
 use tracing::warn;
 
@@ -82,29 +82,4 @@ pub unsafe fn generate_attribute<T: Pod>(
     gl.enable_vertex_attrib_array(id);
 
     buffer
-}
-
-pub unsafe fn uniform_vec3(gl: &Context, program: Program, name: &str, value: &glm::Vec3) {
-    let loc = gl.get_uniform_location(program, name);
-    gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));
-}
-
-pub unsafe fn uniform_mat3(gl: &Context, program: Program, name: &str, value: &glm::Mat3) {
-    let loc = gl.get_uniform_location(program, name);
-    gl.uniform_matrix_3_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
-}
-
-pub unsafe fn uniform_mat4(gl: &Context, program: Program, name: &str, value: &glm::Mat4) {
-    let loc = gl.get_uniform_location(program, name);
-    gl.uniform_matrix_4_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
-}
-
-pub unsafe fn uniform_float(gl: &Context, program: Program, name: &str, value: f32) {
-    let loc = gl.get_uniform_location(program, name);
-    gl.uniform_1_f32(loc.as_ref(), value);
-}
-
-pub unsafe fn uniform_int(gl: &Context, program: Program, name: &str, value: i32) {
-    let loc = gl.get_uniform_location(program, name);
-    gl.uniform_1_i32(loc.as_ref(), value);
 }

@@ -7,7 +7,6 @@ use nalgebra_glm as glm;
 use crate::components::{
     CustomShader, CustomTexture, Mesh, PointLight, Position, Rotation, Scale, Selected, StencilId,
 };
-use crate::gl_util;
 use crate::resources::{Camera, RenderState, WinitWindow};
 
 type GeometryQuery<'a> = (
@@ -48,12 +47,7 @@ pub fn render(
         gl.enable(glow::CULL_FACE);
         gl.cull_face(glow::BACK);
 
-        gl_util::uniform_mat4(
-            &gl,
-            render_state.depth_shader.program,
-            "light_space_matrix",
-            &light_space_matrix,
-        );
+        render_state.depth_shader.uniform_mat4(&gl, "light_space_matrix", &light_space_matrix);
 
         let (width, height) = render_state.shadow_map_size;
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_state.shadow_map_fbo));
@@ -69,7 +63,7 @@ pub fn render(
             * glm::scaling(&scale.into());
 
         unsafe {
-            gl_util::uniform_mat4(&gl, render_state.depth_shader.program, "model", &model);
+            render_state.depth_shader.uniform_mat4(&gl, "model", &model);
             gl.bind_vertex_array(Some(mesh.vao_id));
             gl.draw_elements(glow::TRIANGLES, mesh.indices_len as i32, glow::UNSIGNED_INT, 0);
         }
@@ -122,13 +116,13 @@ pub fn render(
             gl.bind_texture(glow::TEXTURE_2D, Some(diffuse));
             gl.active_texture(glow::TEXTURE1);
             gl.bind_texture(glow::TEXTURE_2D, Some(specular));
-            gl_util::uniform_int(&gl, shader.program, "diffuse_tx", 0);
-            gl_util::uniform_int(&gl, shader.program, "specular_tx", 1);
+            shader.uniform_int(&gl, "diffuse_tx", 0);
+            shader.uniform_int(&gl, "specular_tx", 1);
 
-            gl_util::uniform_mat4(&gl, shader.program, "mvp", &mvp);
-            gl_util::uniform_mat4(&gl, shader.program, "model", &model);
-            gl_util::uniform_mat3(&gl, shader.program, "normal_mat", &normal_mat);
-            gl_util::uniform_float(&gl, shader.program, "selected", 0.0);
+            shader.uniform_mat4(&gl, "mvp", &mvp);
+            shader.uniform_mat4(&gl, "model", &model);
+            shader.uniform_mat3(&gl, "normal_mat", &normal_mat);
+            shader.uniform_float(&gl, "selected", 0.0);
 
             gl.stencil_func(glow::ALWAYS, id as i32, 0xFF);
             gl.bind_vertex_array(Some(mesh.vao_id));
@@ -144,38 +138,13 @@ pub fn render(
                     );
 
                 render_state.geometry_pass_shader.activate(&gl);
-                gl_util::uniform_int(
-                    &gl,
-                    render_state.geometry_pass_shader.program,
-                    "diffuse_tx",
-                    0,
-                );
-                gl_util::uniform_int(
-                    &gl,
-                    render_state.geometry_pass_shader.program,
-                    "specular_tx",
-                    1,
-                );
+                render_state.geometry_pass_shader.uniform_int(&gl, "diffuse_tx", 0);
+                render_state.geometry_pass_shader.uniform_int(&gl, "specular_tx", 1);
 
-                gl_util::uniform_mat4(&gl, render_state.geometry_pass_shader.program, "mvp", &mvp);
-                gl_util::uniform_mat4(
-                    &gl,
-                    render_state.geometry_pass_shader.program,
-                    "model",
-                    &model,
-                );
-                gl_util::uniform_mat3(
-                    &gl,
-                    render_state.geometry_pass_shader.program,
-                    "normal_mat",
-                    &normal_mat,
-                );
-                gl_util::uniform_float(
-                    &gl,
-                    render_state.geometry_pass_shader.program,
-                    "selected",
-                    1.0,
-                );
+                render_state.geometry_pass_shader.uniform_mat4(&gl, "mvp", &mvp);
+                render_state.geometry_pass_shader.uniform_mat4(&gl, "model", &model);
+                render_state.geometry_pass_shader.uniform_mat3(&gl, "normal_mat", &normal_mat);
+                render_state.geometry_pass_shader.uniform_float(&gl, "selected", 1.0);
 
                 // Disable writing to the stencil buffer
                 gl.stencil_mask(0x00);
@@ -212,46 +181,36 @@ pub fn render(
         gl.active_texture(glow::TEXTURE3);
         gl.bind_texture(glow::TEXTURE_2D, Some(render_state.shadow_map));
 
-        gl_util::uniform_int(&gl, render_state.deferred_pass_shader.program, "position_tx", 0);
-        gl_util::uniform_int(&gl, render_state.deferred_pass_shader.program, "normal_tx", 1);
-        gl_util::uniform_int(&gl, render_state.deferred_pass_shader.program, "albedo_spec_tx", 2);
-        gl_util::uniform_vec3(
-            &gl,
-            render_state.deferred_pass_shader.program,
-            "view_pos",
-            &camera.pos,
-        );
+        render_state.deferred_pass_shader.uniform_int(&gl, "position_tx", 0);
+        render_state.deferred_pass_shader.uniform_int(&gl, "normal_tx", 1);
+        render_state.deferred_pass_shader.uniform_int(&gl, "albedo_spec_tx", 2);
+        render_state.deferred_pass_shader.uniform_vec3(&gl, "view_pos", &camera.pos);
 
-        gl_util::uniform_mat4(
+        render_state.deferred_pass_shader.uniform_mat4(
             &gl,
-            render_state.deferred_pass_shader.program,
             "light_space_matrix",
             &light_space_matrix,
         );
-        gl_util::uniform_int(&gl, render_state.deferred_pass_shader.program, "shadow_map_tx", 3);
+        render_state.deferred_pass_shader.uniform_int(&gl, "shadow_map_tx", 3);
 
         // TODO: Make this configurable
-        gl_util::uniform_vec3(
+        render_state.deferred_pass_shader.uniform_vec3(
             &gl,
-            render_state.deferred_pass_shader.program,
             "dir_light.direction",
             &glm::vec3(-0.2, -0.7, -0.5),
         );
-        gl_util::uniform_vec3(
+        render_state.deferred_pass_shader.uniform_vec3(
             &gl,
-            render_state.deferred_pass_shader.program,
             "dir_light.ambient",
             &glm::vec3(0.2, 0.2, 0.2),
         );
-        gl_util::uniform_vec3(
+        render_state.deferred_pass_shader.uniform_vec3(
             &gl,
-            render_state.deferred_pass_shader.program,
             "dir_light.diffuse",
             &glm::vec3(0.5, 0.5, 0.5),
         );
-        gl_util::uniform_vec3(
+        render_state.deferred_pass_shader.uniform_vec3(
             &gl,
-            render_state.deferred_pass_shader.program,
             "dir_light.specular",
             &glm::vec3(1.0, 1.0, 1.0),
         );
@@ -259,56 +218,44 @@ pub fn render(
         let lights_iter = lights.iter();
         let lights_len = lights_iter.len();
         for (i, (light, &light_pos)) in lights_iter.enumerate() {
-            gl_util::uniform_vec3(
+            render_state.deferred_pass_shader.uniform_vec3(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].position"),
                 &light_pos.into(),
             );
-            gl_util::uniform_vec3(
+            render_state.deferred_pass_shader.uniform_vec3(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].ambient"),
                 &light.ambient,
             );
-            gl_util::uniform_vec3(
+            render_state.deferred_pass_shader.uniform_vec3(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].diffuse"),
                 &light.diffuse,
             );
-            gl_util::uniform_vec3(
+            render_state.deferred_pass_shader.uniform_vec3(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].specular"),
                 &light.specular,
             );
-            gl_util::uniform_float(
+            render_state.deferred_pass_shader.uniform_float(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].constant"),
                 light.constant,
             );
-            gl_util::uniform_float(
+            render_state.deferred_pass_shader.uniform_float(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].linear"),
                 light.linear,
             );
-            gl_util::uniform_float(
+            render_state.deferred_pass_shader.uniform_float(
                 &gl,
-                render_state.deferred_pass_shader.program,
                 &format!("point_lights[{i}].quadratic"),
                 light.quadratic,
             );
         }
 
-        gl_util::uniform_int(
-            &gl,
-            render_state.deferred_pass_shader.program,
-            "point_lights_size",
-            lights_len as i32,
-        );
+        render_state.deferred_pass_shader.uniform_int(&gl, "point_lights_size", lights_len as i32);
 
         gl.bind_vertex_array(Some(render_state.quad_vao.vao_id));
         gl.draw_elements(

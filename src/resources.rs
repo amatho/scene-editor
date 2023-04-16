@@ -18,8 +18,8 @@ use zune_png::zune_core::colorspace::ColorSpace;
 use zune_png::zune_core::options::DecoderOptions;
 use zune_png::PngDecoder;
 
-use crate::gl_util::VertexArrayObject;
 use crate::shader::{Shader, ShaderBuilder, ShaderType};
+use crate::vao::VertexArrayObject;
 
 #[derive(Resource)]
 pub struct RenderState {
