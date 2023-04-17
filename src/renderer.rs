@@ -38,21 +38,22 @@ pub fn render(
             &glm::vec3(0.0, 1.0, 0.0),
         );
 
-    render_state.depth_shader.activate(&gl);
-
+    // Shadow map pass
     unsafe {
+        let (width, height) = render_state.shadow_map_size;
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_state.shadow_map_fbo));
+        gl.viewport(0, 0, width, height);
+
+        gl.clear(glow::DEPTH_BUFFER_BIT);
+
         // Fix after egui_glow and prepare for shadow mapping
         gl.enable(glow::DEPTH_TEST);
         gl.depth_func(glow::LESS);
         gl.enable(glow::CULL_FACE);
         gl.cull_face(glow::BACK);
 
+        render_state.depth_shader.activate(&gl);
         render_state.depth_shader.uniform_mat4(&gl, "light_space_matrix", &light_space_matrix);
-
-        let (width, height) = render_state.shadow_map_size;
-        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_state.shadow_map_fbo));
-        gl.viewport(0, 0, width, height);
-        gl.clear(glow::DEPTH_BUFFER_BIT);
     }
 
     for (_, mesh, &pos, &rot, &scale, _, _, _) in &geometry {
@@ -161,14 +162,14 @@ pub fn render(
 
     // Deferred lighting pass
     unsafe {
-        // Disable stencil test to make sure the quad and UI are drawn correctly
-        gl.disable(glow::STENCIL_TEST);
-
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         gl.viewport(0, 0, window_size.width as i32, window_size.height as i32);
 
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+
+        // Disable stencil test to make sure the quad and UI are drawn correctly
+        gl.disable(glow::STENCIL_TEST);
 
         render_state.deferred_pass_shader.activate(&gl);
 
