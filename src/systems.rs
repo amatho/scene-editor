@@ -12,7 +12,7 @@ use crate::resources::{Camera, Input, ModelLoader, RenderState, Time, WinitWindo
 pub fn move_camera(input: Res<Input>, mut camera: ResMut<Camera>, time: Res<Time>) {
     let front = camera.front;
     let up = camera.up;
-    const CAMERA_SPEED: f32 = 10.0;
+    const CAMERA_SPEED: f32 = 5.0;
     const CAMERA_SENSITIVITY: f64 = 0.3;
 
     let speed_modifier =
