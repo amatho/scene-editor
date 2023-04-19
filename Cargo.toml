@@ -3,7 +3,8 @@ name = "scene-editor"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+clipboard = ["egui_glow/clipboard"]
 
 [dependencies]
 ahash = "0.8.3"
