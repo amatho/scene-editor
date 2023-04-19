@@ -11,7 +11,7 @@ bevy_ecs = "0.10"
 bytemuck = "1.13"
 color-eyre = "0.6"
 egui = "0.21"
-egui_glow = { version = "0.21", features = ["winit", "clipboard"] }
+egui_glow = { version = "0.21", features = ["winit"] }
 glow = "0.12"
 glutin = "0.30"
 glutin-winit = "0.3"
