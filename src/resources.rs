@@ -489,15 +489,22 @@ impl ModelLoader {
         P: AsRef<Path> + fmt::Debug,
     {
         let (models, _) = tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS)?;
-        let model = models.into_iter().next().ok_or_else(|| eyre!("OBJ had no models"))?;
+        let models = models.into_iter().fuse();
 
-        let vertices = bytemuck::cast_slice(&model.mesh.positions);
-        let indices = &model.mesh.indices;
-        let normals = bytemuck::cast_slice(&model.mesh.normals);
-        let texture_coords = bytemuck::cast_slice(&model.mesh.texcoords);
-        let vao = unsafe { VertexArrayObject::new(gl, vertices, indices, normals, texture_coords) };
+        if models.len() == 0 {
+            return Err(eyre!("OBJ had no models: {}", path.as_ref().display()));
+        }
 
-        self.models.insert(model.name, vao);
+        for model in models {
+            let vertices = bytemuck::cast_slice(&model.mesh.positions);
+            let indices = &model.mesh.indices;
+            let normals = bytemuck::cast_slice(&model.mesh.normals);
+            let texture_coords = bytemuck::cast_slice(&model.mesh.texcoords);
+            let vao =
+                unsafe { VertexArrayObject::new(gl, vertices, indices, normals, texture_coords) };
+
+            self.models.insert(model.name, vao);
+        }
 
         Ok(())
     }
