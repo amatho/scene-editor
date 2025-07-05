@@ -2,8 +2,8 @@ use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use glow::{Context, HasContext};
 use nalgebra_glm as glm;
 use tracing::warn;
@@ -28,33 +28,45 @@ impl Shader {
     }
 
     pub unsafe fn destroy(&mut self, gl: &Context) {
-        gl.delete_program(self.program);
-        self.destroyed = true;
+        unsafe {
+            gl.delete_program(self.program);
+            self.destroyed = true;
+        }
     }
 
     pub unsafe fn uniform_vec3(&self, gl: &Context, name: &str, value: &glm::Vec3) {
-        let loc = gl.get_uniform_location(self.program, name);
-        gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));
+        unsafe {
+            let loc = gl.get_uniform_location(self.program, name);
+            gl.uniform_3_f32_slice(loc.as_ref(), glm::value_ptr(value));
+        }
     }
 
     pub unsafe fn uniform_mat3(&self, gl: &Context, name: &str, value: &glm::Mat3) {
-        let loc = gl.get_uniform_location(self.program, name);
-        gl.uniform_matrix_3_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
+        unsafe {
+            let loc = gl.get_uniform_location(self.program, name);
+            gl.uniform_matrix_3_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
+        }
     }
 
     pub unsafe fn uniform_mat4(&self, gl: &Context, name: &str, value: &glm::Mat4) {
-        let loc = gl.get_uniform_location(self.program, name);
-        gl.uniform_matrix_4_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
+        unsafe {
+            let loc = gl.get_uniform_location(self.program, name);
+            gl.uniform_matrix_4_f32_slice(loc.as_ref(), false, glm::value_ptr(value));
+        }
     }
 
     pub unsafe fn uniform_float(&self, gl: &Context, name: &str, value: f32) {
-        let loc = gl.get_uniform_location(self.program, name);
-        gl.uniform_1_f32(loc.as_ref(), value);
+        unsafe {
+            let loc = gl.get_uniform_location(self.program, name);
+            gl.uniform_1_f32(loc.as_ref(), value);
+        }
     }
 
     pub unsafe fn uniform_int(&self, gl: &Context, name: &str, value: i32) {
-        let loc = gl.get_uniform_location(self.program, name);
-        gl.uniform_1_i32(loc.as_ref(), value);
+        unsafe {
+            let loc = gl.get_uniform_location(self.program, name);
+            gl.uniform_1_i32(loc.as_ref(), value);
+        }
     }
 }
 

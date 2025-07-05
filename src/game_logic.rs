@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
-use std::sync::mpsc::Receiver;
 use std::sync::Arc;
+use std::sync::mpsc::Receiver;
 
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::ExecutorKind;
@@ -23,7 +23,7 @@ use crate::components::{CustomShader, Mesh, PointLight, Position, Scale, Transfo
 use crate::resources::{
     Camera, EguiGlowRes, Input, ModelLoader, RenderState, TextureLoader, Time, UiState, WinitWindow,
 };
-use crate::{renderer, systems, ui, WinitEvent};
+use crate::{WinitEvent, renderer, systems, ui};
 
 pub fn run_game_loop(
     gl: Arc<Context>,

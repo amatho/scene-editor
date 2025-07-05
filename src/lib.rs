@@ -10,11 +10,11 @@ mod vao;
 
 use std::cell::Cell;
 use std::ffi::CString;
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::thread;
 
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use egui_glow::EguiGlow;
 use glow::{Context, HasContext as _};
 use glutin::config::{Config, ConfigTemplateBuilder};
@@ -25,7 +25,7 @@ use glutin::display::GetGlDisplay;
 use glutin::prelude::*;
 use glutin_winit::{DisplayBuilder, GlWindow};
 use raw_window_handle::HasRawWindowHandle;
-use tracing::{info, Level};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -181,5 +181,8 @@ fn create_glutin_window() -> (Context, PossiblyCurrentContext, Config, Window, E
 }
 
 fn get_thread_result(cell: &Cell<Option<thread::JoinHandle<Result<()>>>>) -> Result<()> {
-    if let Some(thread) = cell.take() { thread.join().unwrap() } else { Ok(()) }
+    match cell.take() {
+        Some(thread) => thread.join().unwrap(),
+        _ => Ok(()),
+    }
 }

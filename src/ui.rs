@@ -62,7 +62,9 @@ pub fn run_ui(
                     ctx,
                     selected.is_ok(),
                     |ui| {
-                        let Ok((entity, mut pos, mut rotation, mut scale, _, point_light)) = selected else {
+                        let Ok((entity, mut pos, mut rotation, mut scale, _, point_light)) =
+                            selected
+                        else {
                             unreachable!();
                         };
 
@@ -248,10 +250,13 @@ pub fn run_ui(
                     },
                 );
 
-                egui::Window::new("⏱ Performance").open(&mut state.performance_open).show(ctx, |ui| {
-                    ui.label(format!("Frame time: {}", time.avg_frame_time_ms()));
-                    ui.label(format!("FPS: {}", (1000.0 / time.avg_frame_time_ms()).round()));
-                });
+                egui::Window::new("⏱ Performance").open(&mut state.performance_open).show(
+                    ctx,
+                    |ui| {
+                        ui.label(format!("Frame time: {}", time.avg_frame_time_ms()));
+                        ui.label(format!("FPS: {}", (1000.0 / time.avg_frame_time_ms()).round()));
+                    },
+                );
             }
             Some(editing_mode) => {
                 if let Ok((entity, _, _, _, custom_shader, _)) = selected {

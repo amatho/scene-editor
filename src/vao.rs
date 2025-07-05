@@ -21,29 +21,33 @@ impl VertexArrayObject {
         normals: &[glm::Vec3],
         texture_coords: &[glm::Vec2],
     ) -> Self {
-        let vao_id = gl.create_vertex_array().unwrap();
-        gl.bind_vertex_array(Some(vao_id));
+        unsafe {
+            let vao_id = gl.create_vertex_array().unwrap();
+            gl.bind_vertex_array(Some(vao_id));
 
-        let vert_buf = generate_attribute(gl, 0, 3, vertices, false);
-        let normal_buf = generate_attribute(gl, 1, 3, normals, false);
-        let tex_buf = generate_attribute(gl, 2, 2, texture_coords, false);
-        let indices_buf = buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
+            let vert_buf = generate_attribute(gl, 0, 3, vertices, false);
+            let normal_buf = generate_attribute(gl, 1, 3, normals, false);
+            let tex_buf = generate_attribute(gl, 2, 2, texture_coords, false);
+            let indices_buf = buffer_with_data(gl, glow::ELEMENT_ARRAY_BUFFER, indices);
 
-        let indices_len = indices.len();
-        let buffers = Box::new([vert_buf, normal_buf, tex_buf, indices_buf]);
-        Self { vao_id, indices_len, buffers, destroyed: false }
+            let indices_len = indices.len();
+            let buffers = Box::new([vert_buf, normal_buf, tex_buf, indices_buf]);
+            Self { vao_id, indices_len, buffers, destroyed: false }
+        }
     }
 
     /// # Safety
     ///
     /// The VAO and buffers are no longer valid and should not be used.
     pub unsafe fn destroy(&mut self, gl: &Context) {
-        for buf in self.buffers.iter() {
-            gl.delete_buffer(*buf);
-        }
-        gl.delete_vertex_array(self.vao_id);
+        unsafe {
+            for buf in self.buffers.iter() {
+                gl.delete_buffer(*buf);
+            }
+            gl.delete_vertex_array(self.vao_id);
 
-        self.destroyed = true;
+            self.destroyed = true;
+        }
     }
 }
 
@@ -56,11 +60,13 @@ impl Drop for VertexArrayObject {
 }
 
 unsafe fn buffer_with_data<T: Pod>(gl: &Context, target: u32, data: &[T]) -> Buffer {
-    let buffer = gl.create_buffer().unwrap();
-    gl.bind_buffer(target, Some(buffer));
-    gl.buffer_data_u8_slice(target, bytemuck::cast_slice(data), glow::STATIC_DRAW);
+    unsafe {
+        let buffer = gl.create_buffer().unwrap();
+        gl.bind_buffer(target, Some(buffer));
+        gl.buffer_data_u8_slice(target, bytemuck::cast_slice(data), glow::STATIC_DRAW);
 
-    buffer
+        buffer
+    }
 }
 
 pub unsafe fn generate_attribute<T: Pod>(
@@ -70,16 +76,18 @@ pub unsafe fn generate_attribute<T: Pod>(
     data: &[T],
     normalize: bool,
 ) -> Buffer {
-    let buffer = buffer_with_data(gl, glow::ARRAY_BUFFER, data);
-    gl.vertex_attrib_pointer_f32(
-        id,
-        elements_per_entry,
-        glow::FLOAT,
-        normalize,
-        mem::size_of::<T>() as i32,
-        0,
-    );
-    gl.enable_vertex_attrib_array(id);
+    unsafe {
+        let buffer = buffer_with_data(gl, glow::ARRAY_BUFFER, data);
+        gl.vertex_attrib_pointer_f32(
+            id,
+            elements_per_entry,
+            glow::FLOAT,
+            normalize,
+            mem::size_of::<T>() as i32,
+            0,
+        );
+        gl.enable_vertex_attrib_array(id);
 
-    buffer
+        buffer
+    }
 }
