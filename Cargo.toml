@@ -24,9 +24,6 @@ tracing-subscriber = "0.3"
 winit = "0.28"
 zune-png = "0.2.0"
 
-[patch.crates-io]
-winit = { git = "https://github.com/amatho/winit", branch = "fix-macos-set-ime-pos" }
-
 [profile.dev]
 opt-level = 1
 
